@@ -1,4 +1,4 @@
-Kyata is a bot living on WhatsApp that helps you ease your daily life!
+Kyata is an assistant bot living on WhatsApp that helps you ease your daily life!
 It can help you manage your expenses as your Expense Tracker
 It also helps you remind you of your tasks as your Tasks Tracker and Reminder
 
