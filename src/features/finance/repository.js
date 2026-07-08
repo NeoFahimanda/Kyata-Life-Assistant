@@ -7,7 +7,7 @@ function getSaldoInfo(noHp, namaUser) {
         const bulanSekarangStr = String(sekarang.getMonth() + 1).padStart(2, '0');
         const rentangBulanIni = `${tahunSekarang}-${bulanSekarangStr}%`;
 
-        // Filter pencarian diganti menggunakan user_id (yang nanti diisi nomor HP)
+        // Filter pencarian menggunakan user_id (nomor HP)
         const resBulanIni = db.prepare(`
             SELECT 
                 SUM(CASE WHEN jenis = 'Pemasukan' THEN nominal ELSE 0 END) as pemasukan,
@@ -71,10 +71,41 @@ function clearFinanceData(noHp) {
     return stmt.run(noHp);
 }
 
+function getTransactionById(id, noHp) {
+    return db.prepare('SELECT * FROM expenses WHERE id = ? AND user_id = ?').get(id, noHp);
+}
+
+function updateTransactionNominal(id, nominal, keterangan) {
+    const stmt = db.prepare('UPDATE expenses SET nominal = ?, keterangan = ? WHERE id = ?');
+    return stmt.run(nominal, keterangan, id);
+}
+
+function deleteTransaction(id) {
+    return db.prepare('DELETE FROM expenses WHERE id = ?').run(id);
+}
+
+function getLastTransaction(noHp) {
+    return db.prepare('SELECT * FROM expenses WHERE user_id = ? ORDER BY id DESC LIMIT 1').get(noHp);
+}
+
+function getAllSyncRows(noHp) {
+    return db.prepare(`
+        SELECT id, jenis, nominal, keterangan, strftime('%d/%m/%Y', tanggal) as tgl 
+        FROM expenses 
+        WHERE user_id = ? AND keterangan LIKE '%Auto-Adjustment Saldo%'
+        ORDER BY id ASC
+    `).all(noHp);
+}
+
 module.exports = {
     getSaldoInfo,
     insertTransaction,
     getBulananRows,
     getMingguanRows,
-    clearFinanceData
+    clearFinanceData,
+    getTransactionById,
+    updateTransactionNominal,
+    deleteTransaction, // Ditambahkan koma yang bener di sini
+    getLastTransaction,
+    getAllSyncRows
 };

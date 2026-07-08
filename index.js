@@ -1,6 +1,6 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
-const { handleFinance } = require('./src/features/finance/handler');
+const { handleFinance } = require('./src/features/finance/handler'); // Tetap pakai 'features' karena di VS Code-mu memang ada!
 
 // Inisialisasi database otomatis saat app dinyalakan
 require('./src/services/database');
@@ -33,13 +33,13 @@ client.on('ready', () => {
 
 // PUSAT ROUTER CHAT MASUK
 client.on('message', async (msg) => {
-    // Jalankan handler finansial, jika mengembalikan true artinya pesan sudah selesai ditangani
-    const isFinance = handleFinance(msg);
+    // FIX UTAMA: Ditambahkan 'await' karena handleFinance adalah fungsi Async
+    const isFinance = await handleFinance(msg);
     
     if (isFinance) return;
 
-    // Nanti di sini kita tinggal tambah:
-    // const isTasks = handleTasks(msg);
+    // Nanti fitur Tasks tinggal ditaruh di bawah sini:
+    // const isTasks = await handleTasks(msg);
     // if (isTasks) return;
 });
 

@@ -5,7 +5,8 @@ async function handleFinance(msg) {
     const parts = textRaw.split(/\s+/);
     const command = parts[0].toLowerCase();
 
-    const validCommands = ['!saldo', '!add', '!minus', '!hutang', '!piutang', '!pay', '!claim', '!bulanan', '!mingguan', '!help', '!reset'];
+    const validCommands = ['!saldo', '!add', '!minus', '!hutang', '!piutang', '!pay', '!claim',
+     '!bulanan', '!mingguan', '!help', '!reset', '!sync', '!split', '!undo'];
     if (!validCommands.includes(command)) return false;
 
     // KUNCI UTAMA: Ambil nomor HP unik & bersihkan nama profil untuk sapaan teks
@@ -21,8 +22,8 @@ async function handleFinance(msg) {
             `Halo *${namaUser}*! Berikut adalah daftar perintah lengkap finansial kamu:\n\n` +
             `• \`!saldo\`\n• \`!add [nominal] [keterangan]\`\n• \`!minus [nominal] [keterangan]\`\n` +
             `• \`!hutang [nominal] [keterangan]\`\n• \`!pay [nominal] [keterangan]\`\n` +
-            `• \`!piutang [nominal] [keterangan]\`\n• \`!claim [nominal] [keterangan]\`\n` +
-            `• \`!mingguan\`\n• \`!bulanan\`\n• \`!reset\``
+            `• \`!piutang [nominal] [keterangan]\`\n• \`!claim [nominal] [keterangan]\`\n• \`!undo\`\n` +
+            `• \`!mingguan\`\n• \`!bulanan\`\n• \`!reset\`\n• \`!sync\`\n• \`!split [id] [nominal] [keterangan]\``
         );
         return true;
     }
@@ -172,6 +173,174 @@ async function handleFinance(msg) {
             msg.reply(`🗑️ *Database Keuangan Bersih!* Semua riwayat transaksi kamu berhasil dihapus.`);
         } catch (error) {
             msg.reply('❌ Gagal mereset data keuangan.');
+        }
+        return true;
+    }
+
+    // ==================== COMMAND: !sync ====================
+    if (command === '!sync') {
+        // JALUR 1: Jika user cuma ketik !sync kosongan (Menampilkan List ID pending split)
+        if (parts.length < 2) {
+            try {
+                const syncRows = repo.getAllSyncRows(noHp);
+
+                if (syncRows.length === 0) {
+                    msg.reply(`🎉 *Semua transaksi kamu sudah rapi!* Tidak ada dana penyeimbang saldo yang menggantung saat ini.\n\n💡 *Tips:* Jika ingin mencocokkan saldo dompet aslimu dengan database, gunakan perintah:\n\`!sync [nominal_uang_asli]\``);
+                    return true;
+                }
+
+                let teksList = `*🔍 DAFTAR ID PENDING SPLIT (${namaUser})* \n`;
+                teksList += `Berikut adalah dana penyeimbang saldo yang belum kamu pecah:\n\n`;
+
+                syncRows.forEach(row => {
+                    let emoji = row.jenis === 'Pemasukan' ? '➕' : '➖';
+                    teksList += `📌 *ID: ${row.id}* [${row.tgl}]\n   ${emoji} Rp ${row.nominal.toLocaleString('id-ID')} (${row.keterangan})\n\n`;
+                });
+
+                teksList += `-----------------------------------------\n`;
+                teksList += `💡 *Cara memecah transaksi:* \n\`!split [ID] [nominal] [keterangan]\`\n\n`;
+                teksList += `💡 *Cara sinkronisasi saldo baru:* \n\`!sync [nominal_uang_asli]\``;
+
+                msg.reply(teksList);
+            } catch (error) {
+                console.error(error);
+                msg.reply('❌ Gagal menarik daftar pending split.');
+            }
+            return true;
+        }
+
+        // JALUR 2: Jika user memasukkan nominal (Menyinkronkan Saldo)
+        const nominalRaw = parts[1];
+        if (isNaN(nominalRaw)) {
+            msg.reply('Nominal saldo harus berupa angka bulat ya! Contoh: "!sync 500000"');
+            return true;
+        }
+
+        const saldoAsliFisik = parseInt(nominalRaw);
+        const s = repo.getSaldoInfo(noHp);
+
+        if (!s) {
+            msg.reply('❌ Gagal memeriksa saldo database sebelum sinkronisasi.');
+            return true;
+        }
+
+        const saldoDiDatabase = s.total;
+        const selisih = saldoAsliFisik - saldoDiDatabase;
+
+        if (selisih === 0) {
+            msg.reply(`📊 Saldo database kamu sudah cocok dengan dompet aslimu (Rp ${saldoAsliFisik.toLocaleString('id-ID')}). Gak perlu disinkronkan lagi! ✨`);
+            return true;
+        }
+
+        msg.reply(`Memproses penyesuaian saldo... 🔄⏳`);
+
+        try {
+            let jenis = selisih > 0 ? 'Pemasukan' : 'Pengeluaran';
+            let nominalMutlak = Math.abs(selisih);
+            
+            // Insert data awal penyeimbang
+            const result = repo.insertTransaction(noHp, jenis, nominalMutlak, `[Auto-Adjustment Saldo]`);
+            const idBaru = result.lastInsertRowid;
+
+            // Update keterangan agar menyertakan ID-nya
+            repo.updateTransactionNominal(idBaru, nominalMutlak, `[ID: ${idBaru}] Auto-Adjustment Saldo`);
+
+            msg.reply(
+                `✅ *SINKRONISASI SALDO BERHASIL!*\n\n` +
+                `💰 Saldo Sekarang: Rp ${saldoAsliFisik.toLocaleString('id-ID')}\n` +
+                `⚖️ Penyesuaian (${jenis}): Rp ${nominalMutlak.toLocaleString('id-ID')}\n` +
+                `📌 *ID Transaksi Penyeimbang: ${idBaru}*\n\n` +
+                `*Tips:* Kalau nanti kamu ingat detail belanjanya, pecah transaksi ini menggunakan perintah:\n` +
+                `\`!split ${idBaru} [nominal] [keterangan]\` (Atau ketik \`!sync\` untuk melihat daftar ID)`
+            );
+        } catch (error) {
+            console.error(error);
+            msg.reply('❌ Gagal mengeksekusi sinkronisasi saldo.');
+        }
+        return true;
+    }
+
+    // ==================== COMMAND: !split ====================
+    if (command === '!split') {
+        if (parts.length < 4 || isNaN(parts[1]) || isNaN(parts[2])) {
+            msg.reply('Format salah! Contoh: "!split [id_lama] [nominal_baru] [keterangan]"');
+            return true;
+        }
+
+        const idTarget = parseInt(parts[1]);
+        const nominalPecahan = parseInt(parts[2]);
+        const keteranganPecahan = parts.slice(3).join(' ');
+
+        try {
+            // Check apakah transaksi penyeimbang itu ada & milik user tersebut
+            const txLama = repo.getTransactionById(idTarget, noHp);
+
+            if (!txLama) {
+                msg.reply(`❌ Transaksi dengan ID ${idTarget} tidak ditemukan di database kamu.`);
+                return true;
+            }
+
+            if (nominalPecahan > txLama.nominal) {
+                msg.reply(`⚠️ Nominal pecahan (Rp ${nominalPecahan.toLocaleString('id-ID')}) tidak boleh lebih besar dari nominal sisa di ID ${idTarget} (Rp ${txLama.nominal.toLocaleString('id-ID')}).`);
+                return true;
+            }
+
+            msg.reply(`Sedang memecah transaksi... 🛠️⏳`);
+
+            // 1. Catat transaksi pecahan yang baru (jenis mengikuti transaksi induknya)
+            repo.insertTransaction(noHp, txLama.jenis, nominalPecahan, keteranganPecahan);
+
+            // 2. Hitung sisa uang di transaksi induk
+            const sisaNominalInduk = txLama.nominal - nominalPecahan;
+
+            if (sisaNominalInduk === 0) {
+                // Jika pas habis terbagi semua, hapus baris induk penyeimbang agar bersih
+                repo.deleteTransaction(idTarget);
+                msg.reply(`✅ Sempurna! Seluruh nominal pada ID ${idTarget} telah berhasil dipecah murni menjadi *${keteranganPecahan}*. Transaksi penyeimbang induk otomatis dihapus.`);
+            } else {
+                // Jika masih ada sisa selisih, update nominal baris induk
+                repo.updateTransactionNominal(idTarget, sisaNominalInduk, `[ID: ${idTarget}] Auto-Adjustment Saldo (Sisa Pecahan)`);
+                msg.reply(
+                    `✅ Transaksi Berhasil Dipecah!\n\n` +
+                    `📝 Berhasil mendaftarkan: Rp ${nominalPecahan.toLocaleString('id-ID')} - ${keteranganPecahan}\n` +
+                    `📉 Sisa dana yang belum didaftarkan pada ID ${idTarget} kini tinggal: *Rp ${sisaNominalInduk.toLocaleString('id-ID')}*`
+                );
+            }
+        } catch (error) {
+            console.error(error);
+            msg.reply('❌ Gagal memproses pemecahan transaksi.');
+        }
+        return true;
+    }
+
+    // ==================== COMMAND: !undo ====================
+    if (command === '!undo') {
+        msg.reply(`Membatalkan transaksi terakhir kamu... ⏳🔄`);
+
+        try {
+            // 1. Cari data transaksi paling terakhir milik nomor HP ini
+            const txTerakhir = repo.getLastTransaction(noHp);
+
+            if (!txTerakhir) {
+                msg.reply(`❌ Kamu belum mencatat transaksi apa pun di bulan ini. Nggak ada yang bisa di-undo!`);
+                return true;
+            }
+
+            // 2. Hapus transaksi tersebut berdasarkan ID-nya
+            repo.deleteTransaction(txTerakhir.id);
+
+            // 3. Ambil sisa saldo terbaru setelah dihapus untuk laporan ke user
+            const s = repo.getSaldoInfo(noHp);
+
+            msg.reply(
+                `🗑️ *UNDO BERHASIL!*\n\n` +
+                `Catatan terakhir kamu berikut telah dihapus dari database:\n` +
+                `• *[${txTerakhir.jenis}]* Rp ${txTerakhir.nominal.toLocaleString('id-ID')} (${txTerakhir.keterangan})\n\n` +
+                `💰 Sisa saldo fisik kamu sekarang: *Rp ${s.total.toLocaleString('id-ID')}*`
+            );
+        } catch (error) {
+            console.error(error);
+            msg.reply('❌ Gagal mengeksekusi perintah undo.');
         }
         return true;
     }
