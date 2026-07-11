@@ -41,10 +41,6 @@ function initCron(client) {
     const menitSekarang = String(sekarangWIB.getMinutes()).padStart(2, "0");
     const waktuSekarangStr = `${jamSekarang}:${menitSekarang}`; // Hasil format pasti: "20:00"
 
-    console.log(
-      `⏱️ [CRON TICK] Mengecek jadwal pada WIB: ${waktuSekarangStr}, Hari: ${hariSekarang}`,
-    );
-
     // 1. PROSES ALARM HARIAN (DAILY)
     try {
       const activeDailyChats = repo.getActiveReminders("daily");

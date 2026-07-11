@@ -23,12 +23,12 @@ db.prepare(
   `
   CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id TEXT,
-    judul_tugas TEXT,
-    waktu_reminder TEXT,
-    status TEXT DEFAULT 'Pending',
-    tipe TEXT DEFAULT 'One-time'
-  )
+    title TEXT NOT NULL,
+    category TEXT NOT NULL,          -- 'EEPIS', 'Organisasi', 'IOU', 'Personal'
+    deadline TEXT,                   -- Bisa DATETIME, atau NULL jika statusnya 'appointed'
+    status TEXT DEFAULT 'pending',   -- 'appointed', 'pending', 'in_progress', 'done'
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 `,
 ).run();
 
