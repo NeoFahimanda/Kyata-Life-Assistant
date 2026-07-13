@@ -4,6 +4,7 @@ const qrcode = require("qrcode-terminal");
 // 1. Impor Handler Fitur (Feature Handlers)
 const { handleFinance } = require("./src/features/finance/handler");
 const { handleTasks } = require("./src/features/tasks/handler"); // Impor Baru Modul Tasks!
+const { initAllCrons } = require("./src/services/cron");
 
 // Inisialisasi database otomatis saat app dinyalakan
 require("./src/services/database");
@@ -32,6 +33,8 @@ client.on("qr", (qr) => {
 
 client.on("ready", () => {
   console.log("🚀 Kyata: Life Assistant sudah aktif dan siap membantu!");
+  // Inisialisasi semua cron jobs saat client siap
+  initAllCrons(client);
 });
 
 // 2. PUSAT ROUTER CHAT MASUK (Central Entry Point)

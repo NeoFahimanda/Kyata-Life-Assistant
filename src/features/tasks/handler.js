@@ -5,11 +5,11 @@ async function handleTasks(msg) {
   const parts = textRaw.split(/\s+/);
   const command = parts[0].toLowerCase();
 
-  // Kunci utama saklar fitur: Hanya memproses jika diawali komando !task
+  // Kunci utama saklar fitur: Hanya memproses jika diawali komando !task atau @task
   if (command !== "@task" && command !== "!task") return false;
 
-  // ✨ KUNCI SAKLAR BARU: Jika cuma ketik !task, arahkan ke sub-command "quick"
   const subCommand = parts[1] ? parts[1].toLowerCase() : "quick";
+  const userId = msg.from; // ✨ Mengambil ID unik ruang obrolan (Personal / Group)
 
   try {
     const kontak = await msg.getContact();
@@ -39,7 +39,8 @@ async function handleTasks(msg) {
           return true;
         }
 
-        const newTask = await tasksRepo.addTask(title, category, deadline, status);
+        // ✨ Kirim userId ke repository agar tercatat milik siapa
+        const newTask = await tasksRepo.addTask(userId, title, category, deadline, status);
 
         let replyMsg = `✅ *Tugas Berhasil Dicatat, ${namaUser}!*\n\n`;
         replyMsg += `🆔 *ID:* ${newTask.id}\n`;
@@ -52,23 +53,21 @@ async function handleTasks(msg) {
         return true;
       }
 
-      // 🌟 COMBINED CASE: Menangani !task (quick) dan !task list (list) bersamaan
       case "quick":
       case "list": {
         const isQuickMode = subCommand === "quick";
 
-        // Panggil repo: Jika quick mode, kirim angka 3 ke SQLite
-        const activeTasks = await tasksRepo.getActiveTasks(isQuickMode ? 3 : null);
+        // ✨ Kirim userId agar user hanya melihat tugas milik chat mereka sendiri
+        const activeTasks = await tasksRepo.getActiveTasks(userId, isQuickMode ? 3 : null);
 
         if (activeTasks.length === 0) {
-          msg.reply(`🎉 *Hore! Tidak ada tugas aktif saat ini, ${namaUser}.*\nPikiranmu bersih! Waktunya istirahat atau ngerjain habit.`);
+          msg.reply(`🎉 *Hore! Tidak ada tugas aktif saat ini, ${namaUser}.*\nPikiranmu bersih! Waktunya istirahat.`);
           return true;
         }
 
-        // Set judul header dinamis berdasarkan perintahnya
         let listMsg = isQuickMode
           ? `⚡ *QUICK VIEW TASKS (TOP 3) ${namaUser.toUpperCase()}* ⚡\n\n`
-          : ` Bars *DAFTAR LENGKAP TUGAS AKTIF ${namaUser.toUpperCase()}* 📊\n\n`;
+          : `📊 *DAFTAR LENGKAP TUGAS AKTIF ${namaUser.toUpperCase()}* 📊\n\n`;
 
         activeTasks.forEach((task) => {
           let statusIcon = "📌";
