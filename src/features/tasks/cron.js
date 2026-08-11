@@ -8,7 +8,21 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  */
 async function sendTaskMessage(client, targetId, messageText) {
     try {
-        const targetChat = await client.getChatById(targetId);
+        let cleanTargetId = targetId;
+
+        // Jika ID masih berupa @lid, coba ubah atau dapatkan contact-nya
+        if (cleanTargetId.includes('@lid')) {
+            try {
+                const contact = await client.getContactById(cleanTargetId);
+                cleanTargetId = contact.id._serialized;
+            } catch (err) {
+                console.warn(`⚠️ Konversi @lid ke contact ID gagal untuk ${cleanTargetId}, mencoba fallback sendMessage direct...`);
+                await client.sendMessage(cleanTargetId, messageText);
+                return;
+            }
+        }
+
+        const targetChat = await client.getChatById(cleanTargetId);
 
         if (targetChat.isGroup) {
             let mentionText = "";
@@ -25,7 +39,6 @@ async function sendTaskMessage(client, targetId, messageText) {
                 }
             }
 
-            // Mengirimkan teks mention di awal disusul isi pengingat utama tugas
             await targetChat.sendMessage(`${mentionText}\n\n${messageText}`, { mentions });
         } else {
             await targetChat.sendMessage(messageText);

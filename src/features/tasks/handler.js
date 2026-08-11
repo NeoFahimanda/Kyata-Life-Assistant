@@ -9,7 +9,19 @@ async function handleTasks(msg) {
   if (command !== "@task" && command !== "!task") return false;
 
   const subCommand = parts[1] ? parts[1].toLowerCase() : "quick";
-  const userId = msg.from; // ✨ Mengambil ID unik ruang obrolan (Personal / Group)
+  // Memastikan userId selalu menggunakan ID standar (@c.us / @g.us), bukan @lid
+  let userId = msg.from;
+  if (msg.author && msg.from.endsWith('@g.us')) {
+    userId = msg.from; // Jika pesan dari grup, tetap gunakan ID grup (@g.us)
+  } else if (msg.from.endsWith('@lid')) {
+    // Jika berupa LID personal, ambil ID nomor telepon asli pengirim
+    userId = msg.author || msg.from;
+    if (userId.includes('@lid')) {
+      // Fallback: Ambil kontak asli
+      const contact = await msg.getContact();
+      userId = contact.id._serialized;
+    }
+  }
 
   try {
     const kontak = await msg.getContact();
