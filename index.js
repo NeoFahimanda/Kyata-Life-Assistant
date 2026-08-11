@@ -1,9 +1,19 @@
+const { execSync } = require("child_process");
 const { Client, LocalAuth } = require("whatsapp-web.js");
 const qrcode = require("qrcode-terminal");
 
+// 0. PEMBERSIHAN ZOMBIE CHROMIUM
+// Bersihkan sisa proses Chromium lama jika ada agar tidak timbul error binding
+try {
+    execSync("pkill -f chromium || true");
+    console.log("🧹 Cleaned up old Chromium processes.");
+} catch (e) {
+    // Abaikan jika tidak ada proses chromium yang berjalan
+}
+
 // 1. Impor Handler Fitur (Feature Handlers)
 const { handleFinance } = require("./src/features/finance/handler");
-const { handleTasks } = require("./src/features/tasks/handler"); // Impor Baru Modul Tasks!
+const { handleTasks } = require("./src/features/tasks/handler");
 const { initAllCrons } = require("./src/services/cron");
 
 // Inisialisasi database otomatis saat app dinyalakan
