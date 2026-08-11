@@ -161,4 +161,15 @@ async function handleTasks(msg) {
   }
 }
 
-module.exports = { handleTasks };
+function getTasksHelpMessage(namaUser = "Kamu") {
+  return `📖 *PANDUAN UTAMA KYATA TASKS* 📖\n\n` +
+    `• \`!task\` -> Quick view melihat 3 teratas yang paling mendesak\n` +
+    `• \`!task list\` -> Melihat seluruh daftar tugas aktifmu\n` +
+    `• \`!task add [Judul] | [Kategori] | [Deadline] | [Status]\`\n` +
+    `• \`!task progress [id]\` -> Set tugas menjadi sedang digarap\n` +
+    `• \`!task done [id]\` -> Tandai tugas selesai\n` +
+    `• \`!task delete [id]\` -> Hapus salah input\n\n` +
+    `💡 *Contoh Input:* \`!task add kerjain komisi | Bisnis | 2026-08-03\``;
+}
+
+module.exports = { handleTasks, getTasksHelpMessage };

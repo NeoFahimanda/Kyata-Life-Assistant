@@ -14,6 +14,7 @@ try {
 // 1. Impor Handler Fitur (Feature Handlers)
 const { handleFinance } = require("./src/features/finance/handler");
 const { handleTasks } = require("./src/features/tasks/handler");
+const { handleGeneral } = require("./src/services/handler-general");
 const { initAllCrons } = require("./src/services/cron");
 
 // Inisialisasi database otomatis saat app dinyalakan
@@ -51,6 +52,9 @@ client.on("ready", () => {
 // 2. PUSAT ROUTER CHAT MASUK (Central Entry Point)
 client.on("message", async (msg) => {
     try {
+        const generalHandled = await handleGeneral(msg);
+        if (generalHandled) return;
+
         // Jalankan handler finansial, jika mengembalikan true artinya pesan selesai diproses
         const financeHandled = await handleFinance(msg);
         if (financeHandled) return;
