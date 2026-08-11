@@ -10,48 +10,49 @@ const { initAllCrons } = require("./src/services/cron");
 require("./src/services/database");
 
 const client = new Client({
-  authStrategy: new LocalAuth(),
-  puppeteer: {
-    handleSIGINT: false,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-accelerated-2d-canvas",
-      "--no-first-run",
-      "--no-zygote",
-      "--single-process",
-      "--disable-gpu",
-    ],
-  },
+    authStrategy: new LocalAuth(),
+    puppeteer: {
+        executablePath: "/usr/bin/chromium",
+        handleSIGINT: false,
+        args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-accelerated-2d-canvas",
+            "--no-first-run",
+            "--no-zygote",
+            "--single-process",
+            "--disable-gpu",
+        ],
+    },
 });
 
 client.on("qr", (qr) => {
-  qrcode.generate(qr, { small: true });
-  console.log("🔄 Scan QR Code di atas untuk menyambungkan Kyata...");
+    qrcode.generate(qr, { small: true });
+    console.log("🔄 Scan QR Code di atas untuk menyambungkan Kyata...");
 });
 
 client.on("ready", () => {
-  console.log("🚀 Kyata: Life Assistant sudah aktif dan siap membantu!");
-  // Inisialisasi semua cron jobs saat client siap
-  initAllCrons(client);
+    console.log("🚀 Kyata: Life Assistant sudah aktif dan siap membantu!");
+    // Inisialisasi semua cron jobs saat client siap
+    initAllCrons(client);
 });
 
 // 2. PUSAT ROUTER CHAT MASUK (Central Entry Point)
 client.on("message", async (msg) => {
-  try {
-    // Jalankan handler finansial, jika mengembalikan true artinya pesan selesai diproses
-    const financeHandled = await handleFinance(msg);
-    if (financeHandled) return;
+    try {
+        // Jalankan handler finansial, jika mengembalikan true artinya pesan selesai diproses
+        const financeHandled = await handleFinance(msg);
+        if (financeHandled) return;
 
-    // Jalankan handler tasks tracker yang baru, jika true maka hentikan aliran proses
-    const tasksHandled = await handleTasks(msg);
-    if (tasksHandled) return;
+        // Jalankan handler tasks tracker yang baru, jika true maka hentikan aliran proses
+        const tasksHandled = await handleTasks(msg);
+        if (tasksHandled) return;
 
-    // Kamu bisa tambahkan modul masa depan di bawah sini (e.g. handleHabits, handleAI)
-  } catch (error) {
-    console.error("🔴 [Pusat Router Error]:", error);
-  }
+        // Kamu bisa tambahkan modul masa depan di bawah sini (e.g. handleHabits, handleAI)
+    } catch (error) {
+        console.error("🔴 [Pusat Router Error]:", error);
+    }
 });
 
 client.initialize();
