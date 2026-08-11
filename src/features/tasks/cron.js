@@ -44,7 +44,7 @@ async function sendTaskMessage(client, targetId, messageText) {
             await targetChat.sendMessage(messageText);
         }
     } catch (error) {
-        console.error(`🔴 [CRON TASKS] Gagal mengirim pesan ke ${targetId}:`, error);
+        console.error(`🔴 [CRON TASKS] Gagal mengirimkan pesan ke ${targetId}:`, error);
     }
 }
 
