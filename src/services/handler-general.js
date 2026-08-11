@@ -18,7 +18,7 @@ async function handleGeneral(msg) {
 
     if (!subCommand) {
         msg.reply(
-            `*===== KYATA HELP CENTER =====*\n` +
+            `*===== Kyata at Your Service! =====*\n` +
             `Hai *${namaUser}*! Gunakan perintah ini:\n` +
             `• \`!help duid\` untuk bantuan fitur keuangan\n` +
             `• \`!help task\` untuk bantuan fitur tugas\n` +
