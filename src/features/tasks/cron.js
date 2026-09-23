@@ -4,25 +4,27 @@ const tasksRepo = require("./repository");
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Mengirim bubble chat pengingat dengan handling Group / Personal Mention secara dinamis
+ * Mengirim bubble chat pengingat (Direct Personal & Mentions untuk Group)
  */
 async function sendTaskMessage(client, targetId, messageText) {
     try {
         if (!targetId) return;
 
+        const normalizedTargetId = String(targetId).trim();
+
         // 1. Mencegah crash jika ID berformat @lid
-        if (targetId.endsWith('@lid')) {
+        if (normalizedTargetId.endsWith('@lid')) {
             try {
-                await client.sendMessage(targetId, messageText);
+                await client.sendMessage(normalizedTargetId, messageText);
             } catch (e) {
-                console.error(`🔴 Gagal kirim langsung ke LID ${targetId}:`, e.message);
+                console.error(`🔴 Gagal kirim langsung ke LID ${normalizedTargetId}:`, e.message);
             }
             return;
         }
 
-        // 2. Jika Target adalah GRUP (@g.us), gunakan getChatById untuk handle Mentions
-        if (targetId.endsWith('@g.us')) {
-            const targetChat = await client.getChatById(targetId);
+        // 2. Jika Target adalah GRUP (@g.us), baru gunakan getChatById untuk handle Mentions
+        if (normalizedTargetId.endsWith('@g.us')) {
+            const targetChat = await client.getChatById(normalizedTargetId);
             let mentionText = "";
             let mentions = [];
 
@@ -39,8 +41,16 @@ async function sendTaskMessage(client, targetId, messageText) {
 
             await targetChat.sendMessage(`${mentionText}\n\n${messageText}`, { mentions });
         } else {
-            // 3. Untuk PERSONAL CHAT (@c.us), bypass getChatById & langsung kirim via client.sendMessage
-            await client.sendMessage(targetId, messageText);
+            // 3. Personal chat: resolve the current WhatsApp ID before sending.
+            const phoneNumber = normalizedTargetId.replace(/@c\.us$/, "");
+            const numberId = await client.getNumberId(phoneNumber);
+
+            if (!numberId) {
+                console.error(`🔴 Nomor WhatsApp tidak terdaftar atau tidak dapat ditemukan: ${phoneNumber}`);
+                return;
+            }
+
+            await client.sendMessage(numberId._serialized, messageText);
         }
     } catch (error) {
         console.error(`🔴 [CRON TASKS] Gagal mengirim pesan ke ${targetId}:`, error);
