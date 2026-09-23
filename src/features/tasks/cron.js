@@ -12,7 +12,7 @@ async function sendTaskMessage(client, targetId, messageText) {
 
         const normalizedTargetId = String(targetId).trim();
 
-        // 1. Mencegah crash jika ID berformat @lid
+        // 1. Handling aman jika ID berformat @lid
         if (normalizedTargetId.endsWith('@lid')) {
             try {
                 await client.sendMessage(normalizedTargetId, messageText);
@@ -22,7 +22,7 @@ async function sendTaskMessage(client, targetId, messageText) {
             return;
         }
 
-        // 2. Jika Target adalah GRUP (@g.us), baru gunakan getChatById untuk handle Mentions
+        // 2. Jika Target adalah GRUP (@g.us), gunakan getChatById untuk handle Mentions
         if (normalizedTargetId.endsWith('@g.us')) {
             const targetChat = await client.getChatById(normalizedTargetId);
             let mentionText = "";
@@ -41,16 +41,8 @@ async function sendTaskMessage(client, targetId, messageText) {
 
             await targetChat.sendMessage(`${mentionText}\n\n${messageText}`, { mentions });
         } else {
-            // 3. Personal chat: resolve the current WhatsApp ID before sending.
-            const phoneNumber = normalizedTargetId.replace(/@c\.us$/, "");
-            const numberId = await client.getNumberId(phoneNumber);
-
-            if (!numberId) {
-                console.error(`🔴 Nomor WhatsApp tidak terdaftar atau tidak dapat ditemukan: ${phoneNumber}`);
-                return;
-            }
-
-            await client.sendMessage(numberId._serialized, messageText);
+            // 3. JIKA PERSONAL CHAT (@c.us): LANGSUNG KIRIM BANYAK-BANYAK TANPA getNumberId / getChatById
+            await client.sendMessage(normalizedTargetId, messageText);
         }
     } catch (error) {
         console.error(`🔴 [CRON TASKS] Gagal mengirim pesan ke ${targetId}:`, error);
@@ -68,7 +60,7 @@ function initCron(client) {
         const tanggalStr = `${sekarangWIB.getFullYear()}-${pad(sekarangWIB.getMonth() + 1)}-${pad(sekarangWIB.getDate())}`;
         const jamMenitStr = `${pad(sekarangWIB.getHours())}:${pad(sekarangWIB.getMinutes())}`;
 
-        const waktuSekarangFullStr = `${tanggalStr} ${jamMenitStr}`; // Hasil: "2026-07-13 21:30"
+        const waktuSekarangFullStr = `${tanggalStr} ${jamMenitStr}`; // Hasil: "2026-09-23 23:35"
 
         // ==========================================
         // JALUR 1: POLLING ANTRIAN PRESISI (MENITAN)
