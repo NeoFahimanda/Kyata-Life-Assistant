@@ -8,23 +8,9 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  */
 async function sendTaskMessage(client, targetId, messageText) {
     try {
-        let cleanTargetId = targetId;
-
-        // Jika ID masih berupa @lid, coba ubah atau dapatkan contact-nya
-        if (cleanTargetId.includes('@lid')) {
-            try {
-                const contact = await client.getContactById(cleanTargetId);
-                cleanTargetId = contact.id._serialized;
-            } catch (err) {
-                console.warn(`⚠️ Konversi @lid ke contact ID gagal untuk ${cleanTargetId}, mencoba fallback sendMessage direct...`);
-                await client.sendMessage(cleanTargetId, messageText);
-                return;
-            }
-        }
-
-        const targetChat = await client.getChatById(cleanTargetId);
-
-        if (targetChat.isGroup) {
+        // 1. Jika Target adalah GRUP (@g.us), gunakan getChatById untuk handle Mentions
+        if (targetId.endsWith('@g.us')) {
+            const targetChat = await client.getChatById(targetId);
             let mentionText = "";
             let mentions = [];
 
@@ -41,10 +27,11 @@ async function sendTaskMessage(client, targetId, messageText) {
 
             await targetChat.sendMessage(`${mentionText}\n\n${messageText}`, { mentions });
         } else {
-            await targetChat.sendMessage(messageText);
+            // 2. Jika Target adalah PERSONAL CHAT (@c.us), bypass getChatById & langsung kirim via client.sendMessage
+            await client.sendMessage(targetId, messageText);
         }
     } catch (error) {
-        console.error(`🔴 [CRON TASKS] Gagal mengirimkan pesan ke ${targetId}:`, error);
+        console.error(`🔴 [CRON TASKS] Gagal mengirim pesan ke ${targetId}:`, error);
     }
 }
 

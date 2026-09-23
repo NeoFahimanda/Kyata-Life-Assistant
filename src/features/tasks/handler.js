@@ -10,17 +10,14 @@ async function handleTasks(msg) {
 
   const subCommand = parts[1] ? parts[1].toLowerCase() : "quick";
   // Memastikan userId selalu menggunakan ID standar (@c.us / @g.us), bukan @lid
+  // Sanitasi userId agar selalu menyimpan ID standar (@c.us / @g.us)
   let userId = msg.from;
+
   if (msg.author && msg.from.endsWith('@g.us')) {
-    userId = msg.from; // Jika pesan dari grup, tetap gunakan ID grup (@g.us)
+    userId = msg.from; // ID Grup
   } else if (msg.from.endsWith('@lid')) {
-    // Jika berupa LID personal, ambil ID nomor telepon asli pengirim
-    userId = msg.author || msg.from;
-    if (userId.includes('@lid')) {
-      // Fallback: Ambil kontak asli
-      const contact = await msg.getContact();
-      userId = contact.id._serialized;
-    }
+    const contact = await msg.getContact();
+    userId = contact.id._serialized; // Paksa konversi ke @c.us
   }
 
   try {
