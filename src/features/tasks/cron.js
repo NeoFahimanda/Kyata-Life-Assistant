@@ -10,7 +10,7 @@ async function sendTaskMessage(client, targetId, messageText) {
     try {
         if (!targetId) return;
 
-        // 1. Handling Khusus jika ID berformat @lid (Linked Device)
+        // 1. Mencegah crash jika ID berformat @lid
         if (targetId.endsWith('@lid')) {
             try {
                 await client.sendMessage(targetId, messageText);
@@ -20,7 +20,7 @@ async function sendTaskMessage(client, targetId, messageText) {
             return;
         }
 
-        // 2. JIKA GROUP CHAT (@g.us) -> Ambil Chat Store untuk tag/mention seluruh member
+        // 2. Jika Target adalah GRUP (@g.us), gunakan getChatById untuk handle Mentions
         if (targetId.endsWith('@g.us')) {
             const targetChat = await client.getChatById(targetId);
             let mentionText = "";
@@ -31,16 +31,15 @@ async function sendTaskMessage(client, targetId, messageText) {
                     const contact = await client.getContactById(participant.id._serialized);
                     mentions.push(contact);
                     mentionText += `@${participant.id.user} `;
-                    await delay(100); // Anti-rate limit delay
+                    await delay(100);
                 } catch (err) {
                     console.error(`Gagal memuat kontak member grup: ${participant.id.user}`);
                 }
             }
 
             await targetChat.sendMessage(`${mentionText}\n\n${messageText}`, { mentions });
-
         } else {
-            // 3. JIKA PERSONAL CHAT (@c.us) -> Bypass getChatById, langsung tembak!
+            // 3. Untuk PERSONAL CHAT (@c.us), bypass getChatById & langsung kirim via client.sendMessage
             await client.sendMessage(targetId, messageText);
         }
     } catch (error) {

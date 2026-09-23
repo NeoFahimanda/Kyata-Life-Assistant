@@ -56,7 +56,7 @@ const tasksRepository = {
         const stmtReminder = db.prepare(queryReminder);
 
         remindersToSchedule.forEach((rem) => {
-          if (rem.time > now) {
+          if (rem.time >= now) {
             stmtReminder.run(taskId, formatDateTime(rem.time), rem.type);
           }
         });
@@ -69,7 +69,6 @@ const tasksRepository = {
   },
 
   /**
-   * ✨ MENGEMBALIKAN FUNGSI YANG HILANG
    * Mengambil tugas aktif spesifik milik user/chat tertentu
    */
   getActiveTasks: async (userId, limit = null) => {
@@ -139,10 +138,12 @@ const tasksRepository = {
   },
 
   /**
-   * ✨ MENGEMBALIKAN FUNGSI YANG HILANG
-   * Menghapus tugas secara permanen
+   * Menghapus tugas secara permanen beserta antrean pengingatnya
    */
   deleteTask: async (id) => {
+    // Bersihkan antrean reminder terlebih dahulu
+    db.prepare(`DELETE FROM task_reminders WHERE task_id = ?`).run(id);
+    // Hapus tugas utama
     const query = `DELETE FROM tasks WHERE id = ?`;
     const info = db.prepare(query).run(id);
     return info.changes > 0;
