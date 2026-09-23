@@ -8,7 +8,19 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  */
 async function sendTaskMessage(client, targetId, messageText) {
     try {
-        // 1. Jika Target adalah GRUP (@g.us), gunakan getChatById untuk handle Mentions
+        if (!targetId) return;
+
+        // 1. Mencegah crash jika ID berformat @lid
+        if (targetId.endsWith('@lid')) {
+            try {
+                await client.sendMessage(targetId, messageText);
+            } catch (e) {
+                console.error(`🔴 Gagal kirim langsung ke LID ${targetId}:`, e.message);
+            }
+            return;
+        }
+
+        // 2. Jika Target adalah GRUP (@g.us), gunakan getChatById untuk handle Mentions
         if (targetId.endsWith('@g.us')) {
             const targetChat = await client.getChatById(targetId);
             let mentionText = "";
@@ -27,7 +39,7 @@ async function sendTaskMessage(client, targetId, messageText) {
 
             await targetChat.sendMessage(`${mentionText}\n\n${messageText}`, { mentions });
         } else {
-            // 2. Jika Target adalah PERSONAL CHAT (@c.us), bypass getChatById & langsung kirim via client.sendMessage
+            // 3. Jika Target adalah PERSONAL CHAT (@c.us), bypass getChatById & langsung kirim via client.sendMessage
             await client.sendMessage(targetId, messageText);
         }
     } catch (error) {
@@ -68,7 +80,7 @@ function initCron(client) {
                         messageTypeBody = "Besok tugas ini sudah harus selesai. Yuk, dicicil atau mulai digarap sekarang!";
                         break;
                     case 'h_minus_1_hour':
-                        headerIcon = "🚨 *🚨 PANIC BUTTON (H-1 JAM)*";
+                        headerIcon = "🚨 *PANIC BUTTON (H-1 JAM)*";
                         messageTypeBody = "Gawat! 1 jam lagi batas waktu tugas ini habis. Buruan amankan atau beresin sekarang!";
                         break;
                     case 'at_deadline':
@@ -133,7 +145,6 @@ function initCron(client) {
 
                     let finalBroadcast = `${openingMsg}\n\n`;
 
-                    // Blok Overdue ditaruh paling atas bubble chat
                     if (totalOverdue > 0) {
                         finalBroadcast += `🚨 *KERJAAN OVERDUE (BELUM KELAR):*\n${overdueText}\n🔥 _Bro/Kak, ini kerjaanmu yang sudah lewat tenggat! Jangan lupa segera diselesaikan biar gak makin menumpuk!_\n\n`;
                     }
