@@ -3,13 +3,9 @@ const tasksRepo = require("./repository");
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * Mengirim bubble chat pengingat (Direct Personal & Mentions untuk Group)
- */
 async function sendTaskMessage(client, targetId, messageText) {
     try {
         if (!targetId) return;
-
         const normalizedTargetId = String(targetId).trim();
 
         // 1. Handling aman jika ID berformat @lid
@@ -22,7 +18,7 @@ async function sendTaskMessage(client, targetId, messageText) {
             return;
         }
 
-        // 2. Jika Target adalah GRUP (@g.us), gunakan getChatById untuk handle Mentions
+        // 2. Jika Target adalah GRUP (@g.us), baru gunakan getChatById untuk handle Mentions
         if (normalizedTargetId.endsWith('@g.us')) {
             const targetChat = await client.getChatById(normalizedTargetId);
             let mentionText = "";
@@ -41,7 +37,7 @@ async function sendTaskMessage(client, targetId, messageText) {
 
             await targetChat.sendMessage(`${mentionText}\n\n${messageText}`, { mentions });
         } else {
-            // 3. JIKA PERSONAL CHAT (@c.us): LANGSUNG KIRIM BANYAK-BANYAK TANPA getNumberId / getChatById
+            // 3. JIKA PERSONAL CHAT (@c.us): LANGSUNG KIRIM TANPA getChatById!
             await client.sendMessage(normalizedTargetId, messageText);
         }
     } catch (error) {
