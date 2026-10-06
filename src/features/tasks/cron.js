@@ -7,37 +7,8 @@ async function sendTaskMessage(client, targetId, messageText) {
     try {
         if (!targetId) return false;
         const normalizedTargetId = String(targetId).trim();
-
-        // 1. Handling aman jika ID berformat @lid
-        if (normalizedTargetId.endsWith('@lid')) {
-            await client.sendMessage(normalizedTargetId, messageText);
-            return true;
-        }
-
-        // 2. Jika Target adalah GRUP (@g.us), baru gunakan getChatById untuk handle Mentions
-        if (normalizedTargetId.endsWith('@g.us')) {
-            const targetChat = await client.getChatById(normalizedTargetId);
-            let mentionText = "";
-            let mentions = [];
-
-            for (let participant of targetChat.participants) {
-                try {
-                    const contact = await client.getContactById(participant.id._serialized);
-                    mentions.push(contact);
-                    mentionText += `@${participant.id.user} `;
-                    await delay(100);
-                } catch (err) {
-                    console.error(`Gagal memuat kontak member grup: ${participant.id.user}`);
-                }
-            }
-
-            await targetChat.sendMessage(`${mentionText}\n\n${messageText}`, { mentions });
-            return true;
-        } else {
-            // 3. JIKA PERSONAL CHAT (@c.us): LANGSUNG KIRIM TANPA getChatById!
-            await client.sendMessage(normalizedTargetId, messageText);
-            return true;
-        }
+        await client.sendMessage(normalizedTargetId, messageText);
+        return true;
     } catch (error) {
         console.error(`🔴 [CRON TASKS] Gagal mengirim pesan ke ${targetId}:`, error);
         return false;
