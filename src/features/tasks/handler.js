@@ -1,5 +1,76 @@
 const tasksRepo = require("./repository");
 
+function formatTaskDeadline(date) {
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function parseTaskDeadline(value, now = new Date()) {
+  if (!value) return null;
+
+  const input = value.trim().toLowerCase();
+  const relativeMatch = input.match(/^(besok\s+lusa|besok|lusa)(?:\s+(.*))?$/);
+
+  if (relativeMatch) {
+    const [, dayPhrase, timePhrase = ""] = relativeMatch;
+    const deadline = new Date(now);
+    const hourByPeriod = {
+      pagi: 7,
+      siang: 12,
+      sore: 16,
+      malam: 19,
+      malem: 19,
+    };
+    const periodHour = hourByPeriod[timePhrase];
+    const timeMatch = timePhrase.match(/^(\d{1,2}):(\d{2})$/);
+
+    if (!timePhrase) {
+      deadline.setSeconds(0, 0);
+      deadline.setTime(deadline.getTime() + (dayPhrase === "besok" ? 24 : 48) * 60 * 60 * 1000);
+    } else {
+      if (periodHour === undefined && !timeMatch) {
+        throw new Error("Waktu deadline tidak dikenali");
+      }
+
+      const hour = periodHour ?? Number(timeMatch[1]);
+      const minute = periodHour === undefined ? Number(timeMatch[2]) : 0;
+      if (hour > 23 || minute > 59) {
+        throw new Error("Waktu deadline tidak valid");
+      }
+
+      deadline.setDate(deadline.getDate() + (dayPhrase === "besok" ? 1 : 2));
+      deadline.setHours(hour, minute, 0, 0);
+    }
+
+    return formatTaskDeadline(deadline);
+  }
+
+  const dateMatch = input.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{1,2}):(\d{2}))?$/);
+  if (!dateMatch) {
+    throw new Error("Format deadline tidak dikenali");
+  }
+
+  const [, yearText, monthText, dayText, hourText = "23", minuteText = "59"] = dateMatch;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const deadline = new Date(year, month - 1, day, hour, minute);
+
+  if (
+    deadline.getFullYear() !== year ||
+    deadline.getMonth() !== month - 1 ||
+    deadline.getDate() !== day ||
+    hour > 23 ||
+    minute > 59
+  ) {
+    throw new Error("Tanggal atau waktu deadline tidak valid");
+  }
+
+  return formatTaskDeadline(deadline);
+}
+
 async function handleTasks(msg) {
   const textRaw = msg.body.trim();
   const parts = textRaw.split(/\s+/);
@@ -20,22 +91,26 @@ async function handleTasks(msg) {
       case "add": {
         const argString = textRaw.substring(10).trim();
         if (!argString) {
-          msg.reply(`❌ *Format Salah, ${namaUser}!*\n\nFormat menambahkan tugas:\n\`!task add [Judul] | [Kategori] | [Deadline YYYY-MM-DD] | [Status]\``);
+          msg.reply(`❌ *Format Salah, ${namaUser}!*\n\nFormat:\n\`!task add [Judul] | [Deadline] | [Kategori] | [Status]\``);
           return true;
         }
 
         const args = argString.split("|").map((item) => item.trim());
         const title = args[0];
-        const category = args[1] || "Personal";
-        let deadline = args[2] || null;
+        const deadlineInput = args[1] || null;
+        const category = args[2] || "Personal";
         const status = args[3] || "pending";
-
-        if (deadline && deadline.length === 10) {
-          deadline = `${deadline} 23:59`;
-        }
 
         if (!title) {
           msg.reply(`❌ *Judul tugas tidak boleh kosong ya, ${namaUser}!*`);
+          return true;
+        }
+
+        let deadline;
+        try {
+          deadline = parseTaskDeadline(deadlineInput);
+        } catch (error) {
+          msg.reply(`❌ Deadline tidak dikenali. Gunakan tanggal YYYY-MM-DD atau contoh: \`besok 17:00\`, \`besok lusa\`, \`besok pagi\`.`);
           return true;
         }
 
@@ -145,11 +220,13 @@ async function handleTasks(msg) {
         let helpMsg = `📖 *PANDUAN UTAMA KYATA TASKS* 📖\n\n`;
         helpMsg += `• \`!task\` -> Quick view melihat 3 teratas yang paling mendesak\n`;
         helpMsg += `• \`!task list\` -> Melihat seluruh daftar tugas aktifmu\n`;
-        helpMsg += `• \`!task add [Judul] | [Kategori] | [Deadline] | [Status]\`\n`;
+        helpMsg += `• \`!task add [Judul] | [Deadline] | [Kategori] | [Status]\`\n`;
         helpMsg += `• \`!task progress [id]\` -> Set tugas menjadi sedang digarap\n`;
         helpMsg += `• \`!task done [id]\` -> Tandai tugas selesai\n`;
         helpMsg += `• \`!task delete [id]\` -> Hapus salah input\n\n`;
-        helpMsg += `💡 *Contoh Input:* \`!task add kerjain komisi | Bisnis | 2026-08-03\``;
+        helpMsg += `💡 *Contoh:* \`!task add beli susu | besok 17:00\`\n`;
+        helpMsg += `Contoh kategori: \`!task add bayar listrik | besok | Rumah\`\n`;
+        helpMsg += `Deadline: \`besok\` = +24 jam, \`besok lusa\` = +48 jam; pagi 07:00, siang 12:00, sore 16:00, malem 19:00.`;
         msg.reply(helpMsg);
         return true;
       }
@@ -165,11 +242,13 @@ function getTasksHelpMessage(namaUser = "Kamu") {
   return `📖 *PANDUAN UTAMA KYATA TASKS* 📖\n\n` +
     `• \`!task\` -> Quick view melihat 3 teratas yang paling mendesak\n` +
     `• \`!task list\` -> Melihat seluruh daftar tugas aktifmu\n` +
-    `• \`!task add [Judul] | [Kategori] | [Deadline] | [Status]\`\n` +
+    `• \`!task add [Judul] | [Deadline] | [Kategori] | [Status]\`\n` +
     `• \`!task progress [id]\` -> Set tugas menjadi sedang digarap\n` +
     `• \`!task done [id]\` -> Tandai tugas selesai\n` +
     `• \`!task delete [id]\` -> Hapus salah input\n\n` +
-    `💡 *Contoh Input:* \`!task add kerjain komisi | Bisnis | 2026-08-03\``;
+    `💡 *Contoh:* \`!task add beli susu | besok 17:00\`\n` +
+    `Contoh kategori: \`!task add bayar listrik | besok | Rumah\`\n` +
+    `Deadline: \`besok\` = +24 jam, \`besok lusa\` = +48 jam; pagi 07:00, siang 12:00, sore 16:00, malem 19:00.`;
 }
 
-module.exports = { handleTasks, getTasksHelpMessage };
+module.exports = { handleTasks, getTasksHelpMessage, parseTaskDeadline };
