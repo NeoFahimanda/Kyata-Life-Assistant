@@ -1,7 +1,12 @@
 const fs = require("fs");
 const path = require("path");
 
+let cronsInitialized = false;
+
 function initAllCrons(client) {
+  if (cronsInitialized) return;
+  cronsInitialized = true;
+
   console.log(
     "⏰ [CRON SYSTEM] Menginisialisasi sistem penjadwalan otomatis...",
   );

@@ -4,6 +4,14 @@ const repo = require("./repository");
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function sendReminderMessage(client, chat, typeText) {
+  if (!String(chat.chat_id).endsWith("@g.us")) {
+    await client.sendMessage(
+      chat.chat_id,
+      `📢 *WAKTU NYA TRACKING DUIT ${typeText}!* 📊\n\nHalo! Jangan lupa luangkan waktu sejenak untuk merapikan dan mencatat pengeluaran finansialmu ${typeText.toLowerCase()} ini ya. Semangat! 💪✨`,
+    );
+    return;
+  }
+
   const targetChat = await client.getChatById(chat.chat_id);
 
   if (targetChat.isGroup) {
@@ -21,10 +29,6 @@ async function sendReminderMessage(client, chat, typeText) {
       }
     }
     await targetChat.sendMessage(text, { mentions });
-  } else {
-    await targetChat.sendMessage(
-      `📢 *WAKTU NYA TRACKING DUIT ${typeText}!* 📊\n\nHalo! Jangan lupa luangkan waktu sejenak untuk merapikan dan mencatat pengeluaran finansialmu ${typeText.toLowerCase()} ini ya. Semangat! 💪✨`,
-    );
   }
 }
 
@@ -83,7 +87,7 @@ function initCron(client) {
     } catch (error) {
       console.error("Error pada cron mingguan:", error);
     }
-  });
+  }, { timezone: "Asia/Jakarta" });
 }
 
 module.exports = { initCron };

@@ -9,21 +9,12 @@ async function handleTasks(msg) {
   if (command !== "@task" && command !== "!task") return false;
 
   const subCommand = parts[1] ? parts[1].toLowerCase() : "quick";
-  // Memastikan userId selalu menggunakan ID standar (@c.us / @g.us), bukan @lid
-  // Sanitasi userId agar selalu menyimpan ID standar (@c.us / @g.us)
-  let userId = msg.from;
-
-  if (msg.author && msg.from.endsWith('@g.us')) {
-    userId = msg.from; // ID Grup
-  } else if (msg.from.endsWith('@lid')) {
-    const contact = await msg.getContact();
-    userId = contact.id._serialized; // Paksa konversi ke @c.us
-  }
+  const userId = msg.from;
 
   try {
     const kontak = await msg.getContact();
     let namaUser = kontak.pushname || kontak.number;
-    namaUser = namaUser.replace(/[/ \\ ?*:[ ] ]/g, "");
+    namaUser = namaUser.replace(/[/\\?*:[\]]/g, "").trim();
 
     switch (subCommand) {
       case "add": {
@@ -108,7 +99,7 @@ async function handleTasks(msg) {
           return true;
         }
 
-        const isUpdated = await tasksRepo.updateTaskStatus(taskId, "in_progress");
+        const isUpdated = await tasksRepo.updateTaskStatus(taskId, "in_progress", userId);
         if (isUpdated) {
           msg.reply(`⚡ *Status Diperbarui!* Tugas ID *#${taskId}* sekarang berstatus *IN PROGRESS*. Selamat fokus menggarap, ${namaUser}!`);
         } else {
@@ -124,7 +115,7 @@ async function handleTasks(msg) {
           return true;
         }
 
-        const isUpdated = await tasksRepo.updateTaskStatus(taskId, "done");
+        const isUpdated = await tasksRepo.updateTaskStatus(taskId, "done", userId);
         if (isUpdated) {
           msg.reply(`🎉 *Mantap ${namaUser}!* Tugas ID *#${taskId}* resmi diselesaikan. Pikiran makin lega! 🌟`);
         } else {
@@ -140,7 +131,7 @@ async function handleTasks(msg) {
           return true;
         }
 
-        const isDeleted = await tasksRepo.deleteTask(taskId);
+        const isDeleted = await tasksRepo.deleteTask(taskId, userId);
         if (isDeleted) {
           msg.reply(`🗑️ Tugas ID *#${taskId}* telah dihapus permanen dari database.`);
         } else {

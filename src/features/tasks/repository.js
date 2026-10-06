@@ -126,9 +126,9 @@ const tasksRepository = {
     }, {});
   },
 
-  updateTaskStatus: async (id, status) => {
-    const query = `UPDATE tasks SET status = ? WHERE id = ?`;
-    const info = db.prepare(query).run(status, id);
+  updateTaskStatus: async (id, status, userId) => {
+    const query = `UPDATE tasks SET status = ? WHERE id = ? AND user_id = ?`;
+    const info = db.prepare(query).run(status, id, userId);
 
     if (info.changes > 0 && status === 'done') {
       const cancelQuery = `UPDATE task_reminders SET status = 'cancelled' WHERE task_id = ? AND status = 'pending'`;
@@ -140,13 +140,18 @@ const tasksRepository = {
   /**
    * Menghapus tugas secara permanen beserta antrean pengingatnya
    */
-  deleteTask: async (id) => {
-    // Bersihkan antrean reminder terlebih dahulu
-    db.prepare(`DELETE FROM task_reminders WHERE task_id = ?`).run(id);
-    // Hapus tugas utama
-    const query = `DELETE FROM tasks WHERE id = ?`;
-    const info = db.prepare(query).run(id);
-    return info.changes > 0;
+  deleteTask: async (id, userId) => {
+    const deleteOwnedTask = db.transaction(() => {
+      const task = db.prepare(`SELECT id FROM tasks WHERE id = ? AND user_id = ?`).get(id, userId);
+      if (!task) return false;
+
+      db.prepare(`DELETE FROM task_reminders WHERE task_id = ?`).run(id);
+      const query = `DELETE FROM tasks WHERE id = ? AND user_id = ?`;
+      const info = db.prepare(query).run(id, userId);
+      return info.changes > 0;
+    });
+
+    return deleteOwnedTask();
   },
 
   updateReminderStatus: async (reminderId, status) => {

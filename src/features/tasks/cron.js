@@ -5,17 +5,13 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function sendTaskMessage(client, targetId, messageText) {
     try {
-        if (!targetId) return;
+        if (!targetId) return false;
         const normalizedTargetId = String(targetId).trim();
 
         // 1. Handling aman jika ID berformat @lid
         if (normalizedTargetId.endsWith('@lid')) {
-            try {
-                await client.sendMessage(normalizedTargetId, messageText);
-            } catch (e) {
-                console.error(`🔴 Gagal kirim langsung ke LID ${normalizedTargetId}:`, e.message);
-            }
-            return;
+            await client.sendMessage(normalizedTargetId, messageText);
+            return true;
         }
 
         // 2. Jika Target adalah GRUP (@g.us), baru gunakan getChatById untuk handle Mentions
@@ -36,12 +32,15 @@ async function sendTaskMessage(client, targetId, messageText) {
             }
 
             await targetChat.sendMessage(`${mentionText}\n\n${messageText}`, { mentions });
+            return true;
         } else {
             // 3. JIKA PERSONAL CHAT (@c.us): LANGSUNG KIRIM TANPA getChatById!
             await client.sendMessage(normalizedTargetId, messageText);
+            return true;
         }
     } catch (error) {
         console.error(`🔴 [CRON TASKS] Gagal mengirim pesan ke ${targetId}:`, error);
+        return false;
     }
 }
 
@@ -97,8 +96,10 @@ function initCron(client) {
                 reminderMsg += `💡 _${messageTypeBody}_\n\n`;
                 reminderMsg += `👉 Ketik \`!task progress ${item.task_id}\` untuk mulai garap atau \`!task done ${item.task_id}\` jika sudah beres!`;
 
-                await sendTaskMessage(client, item.user_id, reminderMsg);
-                await tasksRepo.updateReminderStatus(item.reminder_id, 'sent');
+                const sent = await sendTaskMessage(client, item.user_id, reminderMsg);
+                if (sent) {
+                    await tasksRepo.updateReminderStatus(item.reminder_id, 'sent');
+                }
                 await delay(500);
             }
         } catch (err) {
@@ -160,7 +161,7 @@ function initCron(client) {
                 console.error(`🔴 [CRON TASKS] Gagal memproses broadcast proaktif ${label}:`, err);
             }
         }
-    });
+    }, { timezone: "Asia/Jakarta" });
 }
 
 module.exports = { initCron };
