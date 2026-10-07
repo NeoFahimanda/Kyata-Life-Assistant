@@ -38,13 +38,71 @@ const client = new Client({
     },
 });
 
+let reconnectTimer = null;
+let reconnectAttempts = 0;
+let reconnecting = false;
+
+function requestClientReconnect(reason) {
+    if (reconnectTimer || reconnecting) return;
+
+    const delayMs = Math.min(5000 * (2 ** reconnectAttempts), 60000);
+    reconnectAttempts += 1;
+    console.error(`🔴 [WHATSAPP CLIENT] ${reason}. Reconnecting in ${Math.round(delayMs / 1000)}s...`);
+
+    reconnectTimer = setTimeout(async () => {
+        reconnectTimer = null;
+        reconnecting = true;
+
+        try {
+            await client.destroy();
+        } catch (error) {
+            console.error("[WHATSAPP CLIENT] Error closing stale client:", error);
+        }
+
+        try {
+            await client.initialize();
+        } catch (error) {
+            console.error("[WHATSAPP CLIENT] Reinitialization failed:", error);
+            reconnecting = false;
+            requestClientReconnect("Retrying after initialization failure");
+            return;
+        }
+
+        reconnecting = false;
+    }, delayMs);
+}
+
+client.on("disconnected", (reason) => {
+    requestClientReconnect(`Disconnected: ${reason}`);
+});
+
+client.on("session_error", (error) => {
+    requestClientReconnect(`Browser session error: ${error.message || error}`);
+});
+
+client.on("auth_failure", (reason) => {
+    console.error("🔴 [WHATSAPP CLIENT] Authentication failed:", reason);
+});
+
 client.on("qr", (qr) => {
     qrcode.generate(qr, { small: true });
     console.log("🔄 Scan QR Code di atas untuk menyambungkan Kyata...");
 });
 
 client.on("ready", () => {
+    reconnectAttempts = 0;
     console.log("🚀 Kyata: Life Assistant sudah aktif dan siap membantu!");
+
+    client.pupPage?.once("error", (error) => {
+        requestClientReconnect(`Puppeteer page crashed: ${error.message}`);
+    });
+    client.pupPage?.once("close", () => {
+        requestClientReconnect("Puppeteer page closed");
+    });
+    client.pupBrowser?.once("disconnected", () => {
+        requestClientReconnect("Puppeteer browser disconnected");
+    });
+
     // Inisialisasi semua cron jobs saat client siap
     initAllCrons(client);
 });
@@ -69,4 +127,7 @@ client.on("message", async (msg) => {
     }
 });
 
-client.initialize();
+client.initialize().catch((error) => {
+    console.error("🔴 [WHATSAPP CLIENT] Initial startup failed:", error);
+    requestClientReconnect("Retrying after initial startup failure");
+});

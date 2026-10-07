@@ -11,6 +11,9 @@ async function sendTaskMessage(client, targetId, messageText) {
         return true;
     } catch (error) {
         console.error(`🔴 [CRON TASKS] Gagal mengirim pesan ke ${targetId}:`, error);
+        if (/detached Frame|Target closed|Session closed|Execution context was destroyed/i.test(error.message || "")) {
+            client.emit("session_error", error);
+        }
         return false;
     }
 }
