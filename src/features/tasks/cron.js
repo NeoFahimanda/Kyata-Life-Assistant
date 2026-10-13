@@ -11,24 +11,19 @@ async function sendTaskMessage(client, targetId, messageText, creatorIds = []) {
 
         if (normalizedTargetId.endsWith("@g.us")) {
             const uniqueCreatorIds = [...new Set((Array.isArray(creatorIds) ? creatorIds : [creatorIds]).filter(Boolean))];
-            const mentionTags = [];
-            options.mentions = [];
+            if (uniqueCreatorIds.length > 0) {
+                const mentionLine = uniqueCreatorIds
+                    .map((creatorId) => `@${String(creatorId).split("@")[0]}`)
+                    .join(" ");
+                options.mentions = uniqueCreatorIds;
 
-            for (const creatorId of uniqueCreatorIds) {
-                try {
-                    const creator = await client.getContactById(creatorId);
-                    if (creator) {
-                        const mentionId = creator.number || String(creatorId).split("@")[0];
-                        mentionTags.push(`@${mentionId}`);
-                        options.mentions.push(creator);
-                    }
-                } catch (error) {
-                    console.error(`⚠️ [CRON TASKS] Gagal menyiapkan mention untuk ${creatorId}:`, error);
+                const headerBreak = messageText.indexOf("\n");
+                if (headerBreak === -1) {
+                    messageText = `${messageText}\n${mentionLine}`;
+                } else {
+                    messageText = `${messageText.slice(0, headerBreak)}\n${mentionLine}${messageText.slice(headerBreak + 1)}`;
                 }
             }
-
-            if (mentionTags.length > 0) messageText = `${mentionTags.join(" ")}\n${messageText}`;
-            if (options.mentions.length === 0) delete options.mentions;
         }
 
         await client.sendMessage(normalizedTargetId, messageText, options);

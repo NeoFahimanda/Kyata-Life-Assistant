@@ -9,11 +9,13 @@ function parseTaskDeadline(value, now = new Date()) {
   if (!value) return null;
 
   const input = value.trim().toLowerCase();
-  const relativeMatch = input.match(/^(besok\s+lusa|besok|lusa)(?:\s+(.*))?$/);
+  const relativeMatch = input.match(/^(today|hari ini|(?:pagi|siang|sore|malam|malem) ini|besok\s+lusa|besok|lusa)(?:\s+(.*))?$/);
 
   if (relativeMatch) {
     const [, dayPhrase, timePhrase = ""] = relativeMatch;
     const deadline = new Date(now);
+    const todayPeriodMatch = dayPhrase.match(/^(pagi|siang|sore|malam|malem) ini$/);
+    const isToday = dayPhrase === "today" || dayPhrase === "hari ini" || Boolean(todayPeriodMatch);
     const hourByPeriod = {
       pagi: 7,
       siang: 12,
@@ -21,12 +23,15 @@ function parseTaskDeadline(value, now = new Date()) {
       malam: 19,
       malem: 19,
     };
-    const periodHour = hourByPeriod[timePhrase];
-    const timeMatch = timePhrase.match(/^(\d{1,2}):(\d{2})$/);
+    const parsedTimePhrase = todayPeriodMatch ? todayPeriodMatch[1] : timePhrase;
+    const periodHour = hourByPeriod[parsedTimePhrase];
+    const timeMatch = parsedTimePhrase.match(/^(\d{1,2}):(\d{2})$/);
 
-    if (!timePhrase) {
+    if (!parsedTimePhrase) {
       deadline.setSeconds(0, 0);
-      deadline.setTime(deadline.getTime() + (dayPhrase === "besok" ? 24 : 48) * 60 * 60 * 1000);
+      if (!isToday) {
+        deadline.setTime(deadline.getTime() + (dayPhrase === "besok" ? 24 : 48) * 60 * 60 * 1000);
+      }
     } else {
       if (periodHour === undefined && !timeMatch) {
         throw new Error("Waktu deadline tidak dikenali");
@@ -38,7 +43,7 @@ function parseTaskDeadline(value, now = new Date()) {
         throw new Error("Waktu deadline tidak valid");
       }
 
-      deadline.setDate(deadline.getDate() + (dayPhrase === "besok" ? 1 : 2));
+      if (!isToday) deadline.setDate(deadline.getDate() + (dayPhrase === "besok" ? 1 : 2));
       deadline.setHours(hour, minute, 0, 0);
     }
 
@@ -118,7 +123,7 @@ async function handleTasks(msg) {
         try {
           deadline = parseTaskDeadline(deadlineInput);
         } catch (error) {
-          msg.reply(`❌ Deadline tidak dikenali. Gunakan tanggal YYYY-MM-DD atau contoh: \`besok 17:00\`, \`besok lusa\`, \`besok pagi\`.`);
+          msg.reply(`❌ Deadline tidak dikenali. Gunakan tanggal YYYY-MM-DD atau contoh: \`hari ini 17:00\`, \`sore ini\`, \`besok 17:00\`, \`besok pagi\`.`);
           return true;
         }
 
@@ -236,7 +241,7 @@ async function handleTasks(msg) {
         helpMsg += `• \`!task delete [id]\` -> Hapus salah input\n\n`;
         helpMsg += `💡 *Contoh:* \`!task add beli susu. besok 17:00\`\n`;
         helpMsg += `Contoh kategori: \`!task add bayar listrik. besok. Rumah\`\n`;
-        helpMsg += `Deadline: \`besok\` = +24 jam, \`besok lusa\` = +48 jam; pagi 07:00, siang 12:00, sore 16:00, malem 19:00.`;
+        helpMsg += `Deadline: \`hari ini 17:00\` atau \`sore ini\`; \`besok\` = +24 jam, \`besok lusa\` = +48 jam. Pagi 07:00, siang 12:00, sore 16:00, malem 19:00.`;
         msg.reply(helpMsg);
         return true;
       }
@@ -258,7 +263,7 @@ function getTasksHelpMessage(namaUser = "Kamu") {
     `• \`!task delete [id]\` -> Hapus salah input\n\n` +
     `💡 *Contoh:* \`!task add beli susu. besok 17:00\`\n` +
     `Contoh kategori: \`!task add bayar listrik. besok. Rumah\`\n` +
-    `Deadline: \`besok\` = +24 jam, \`besok lusa\` = +48 jam; pagi 07:00, siang 12:00, sore 16:00, malem 19:00.`;
+    `Deadline: \`hari ini 17:00\` atau \`sore ini\`; \`besok\` = +24 jam, \`besok lusa\` = +48 jam. Pagi 07:00, siang 12:00, sore 16:00, malem 19:00.`;
 }
 
 module.exports = { handleTasks, getTasksHelpMessage, parseTaskDeadline };
