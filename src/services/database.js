@@ -33,6 +33,14 @@ db.prepare(
   `
 ).run();
 
+const taskColumns = db.prepare("PRAGMA table_info(tasks)").all().map((column) => column.name);
+if (!taskColumns.includes("creator_id")) {
+  db.prepare("ALTER TABLE tasks ADD COLUMN creator_id TEXT").run();
+}
+if (!taskColumns.includes("creator_name")) {
+  db.prepare("ALTER TABLE tasks ADD COLUMN creator_name TEXT").run();
+}
+
 // 3. Membuat tabel konfigurasi bot alarm finance
 db.prepare(
   `

@@ -9,16 +9,16 @@ const tasksRepository = {
   /**
    * Menambahkan tugas baru dan mendaftarkan antrean notifikasi berbasis user_id
    */
-  addTask: async (userId, title, category, deadline = null, status = 'pending') => {
+  addTask: async (userId, title, category, deadline = null, status = 'pending', creatorId = null, creatorName = null) => {
     const finalStatus = status === 'appointed' || !deadline ? 'appointed' : status;
     const finalDeadline = finalStatus === 'appointed' ? null : deadline;
 
     const queryTask = `
-      INSERT INTO tasks (user_id, title, category, deadline, status)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO tasks (user_id, title, category, deadline, status, creator_id, creator_name)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
     const stmtTask = db.prepare(queryTask);
-    const infoTask = stmtTask.run(userId, title, category, finalDeadline, finalStatus);
+    const infoTask = stmtTask.run(userId, title, category, finalDeadline, finalStatus, creatorId, creatorName);
     const taskId = infoTask.lastInsertRowid;
 
     if (finalDeadline) {
@@ -65,7 +65,7 @@ const tasksRepository = {
       }
     }
 
-    return { id: taskId, title, category, deadline: finalDeadline, status: finalStatus };
+    return { id: taskId, title, category, deadline: finalDeadline, status: finalStatus, creatorId, creatorName };
   },
 
   /**
@@ -73,7 +73,7 @@ const tasksRepository = {
    */
   getActiveTasks: async (userId, limit = null) => {
     let query = `
-      SELECT id, title, category, deadline, status 
+      SELECT id, title, category, deadline, status, creator_name
       FROM tasks 
       WHERE user_id = ? AND status IN ('pending', 'in_progress', 'appointed')
       ORDER BY 
@@ -96,7 +96,8 @@ const tasksRepository = {
 
   getPendingQueue: async (currentTimeStr) => {
     const query = `
-      SELECT r.id AS reminder_id, r.type, t.id AS task_id, t.title, t.category, t.deadline, t.user_id
+            SELECT r.id AS reminder_id, r.type, t.id AS task_id, t.title, t.category, t.deadline,
+              t.user_id, t.creator_id, t.creator_name
       FROM task_reminders r
       JOIN tasks t ON r.task_id = t.id
       WHERE r.status = 'pending' AND r.trigger_time <= ?
@@ -109,7 +110,7 @@ const tasksRepository = {
    */
   getAllUnfinishedTasksGrouped: async () => {
     const query = `
-      SELECT user_id, id, title, category, deadline, status,
+      SELECT user_id, id, title, category, deadline, status, creator_id, creator_name,
              CASE WHEN deadline < datetime('now', 'localtime') AND deadline IS NOT NULL THEN 1 ELSE 0 END as is_overdue
       FROM tasks
       WHERE status IN ('pending', 'in_progress')

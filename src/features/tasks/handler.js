@@ -84,25 +84,33 @@ async function handleTasks(msg) {
 
   try {
     const kontak = await msg.getContact();
-    let namaUser = kontak.pushname || kontak.number;
+    let namaUser = kontak.pushname || kontak.name || kontak.number || "Pengguna";
     namaUser = namaUser.replace(/[/\\?*:[\]]/g, "").trim();
+    const creatorId = msg.author || kontak.id?._serialized || null;
 
     switch (subCommand) {
       case "add": {
         const argString = textRaw.substring(10).trim();
         if (!argString) {
-          msg.reply(`❌ *Format Salah, ${namaUser}!*\n\nFormat:\n\`!task add [Judul] | [Deadline] | [Kategori] | [Status]\``);
+          msg.reply(`❌ *Format Salah, ${namaUser}!*\n\nFormat:\n\`!task add [Judul]. [Deadline]. [Kategori]. [Status]\``);
           return true;
         }
 
-        const args = argString.split("|").map((item) => item.trim());
+        const separator = argString.includes("|") ? "|" : ".";
+        const args = argString.split(separator).map((item) => item.trim());
         const title = args[0];
         const deadlineInput = args[1] || null;
         const category = args[2] || "Personal";
-        const status = args[3] || "pending";
+        const requestedStatus = (args[3] || "pending").replace(/^\[|\]$/g, "").trim().toLowerCase();
+        const status = requestedStatus === "status" ? "pending" : requestedStatus;
 
         if (!title) {
           msg.reply(`❌ *Judul tugas tidak boleh kosong ya, ${namaUser}!*`);
+          return true;
+        }
+
+        if (!["pending", "in_progress", "appointed", "done"].includes(status)) {
+          msg.reply("❌ Status harus pending, in_progress, appointed, atau done.");
           return true;
         }
 
@@ -115,14 +123,14 @@ async function handleTasks(msg) {
         }
 
         // ✨ Kirim userId ke repository agar tercatat milik siapa
-        const newTask = await tasksRepo.addTask(userId, title, category, deadline, status);
+        const newTask = await tasksRepo.addTask(userId, title, category, deadline, status, creatorId, namaUser);
 
         let replyMsg = `✅ *Tugas Berhasil Dicatat, ${namaUser}!*\n\n`;
-        replyMsg += `🆔 *ID:* ${newTask.id}\n`;
-        replyMsg += `📌 *Tugas:* ${newTask.title}\n`;
-        replyMsg += `🗂️ *Kategori:* ${newTask.category}\n`;
-        replyMsg += `⏳ *Deadline:* ${newTask.deadline ? newTask.deadline : "Ngambang (Appointed)"}\n`;
-        replyMsg += `🚦 *Status:* \`${newTask.status.toUpperCase()}\``;
+        replyMsg += `[${newTask.id}]\n`;
+        replyMsg += `📌 ${newTask.title}\n`;
+        replyMsg += `🗂️ _${newTask.category}_\n`;
+        replyMsg += `⏳ Deadline: ${newTask.deadline || "Tidak ditentukan"}\n`;
+        replyMsg += `🚦 Status: ${newTask.status.toUpperCase()}`;
 
         msg.reply(replyMsg);
         return true;
@@ -150,11 +158,13 @@ async function handleTasks(msg) {
           if (task.status === "appointed") statusIcon = "☁️";
 
           const deadlineText = task.deadline
-            ? `⏳ _Batas: ${task.deadline}_`
-            : "☁️ _Belum ada deadline..._";
+            ? `⏳ Deadline: ${task.deadline}`
+            : "☁️ Deadline: tidak ditentukan";
 
           listMsg += `${statusIcon} *[ID: ${task.id}]* ${task.title}\n`;
-          listMsg += `    └ 🗂️ ${task.category} | ${deadlineText} | \`${task.status.toUpperCase()}\`\n\n`;
+          listMsg += `    └ 🗂️ _${task.category}_ | ${deadlineText} | ${task.status.toUpperCase()}`;
+          if (task.creator_name) listMsg += ` | 👤 ${task.creator_name}`;
+          listMsg += "\n\n";
         });
 
         if (isQuickMode) {
@@ -220,12 +230,12 @@ async function handleTasks(msg) {
         let helpMsg = `📖 *PANDUAN UTAMA KYATA TASKS* 📖\n\n`;
         helpMsg += `• \`!task\` -> Quick view melihat 3 teratas yang paling mendesak\n`;
         helpMsg += `• \`!task list\` -> Melihat seluruh daftar tugas aktifmu\n`;
-        helpMsg += `• \`!task add [Judul] | [Deadline] | [Kategori] | [Status]\`\n`;
+        helpMsg += `• \`!task add [Judul]. [Deadline]. [Kategori]. [Status]\`\n`;
         helpMsg += `• \`!task progress [id]\` -> Set tugas menjadi sedang digarap\n`;
         helpMsg += `• \`!task done [id]\` -> Tandai tugas selesai\n`;
         helpMsg += `• \`!task delete [id]\` -> Hapus salah input\n\n`;
-        helpMsg += `💡 *Contoh:* \`!task add beli susu | besok 17:00\`\n`;
-        helpMsg += `Contoh kategori: \`!task add bayar listrik | besok | Rumah\`\n`;
+        helpMsg += `💡 *Contoh:* \`!task add beli susu. besok 17:00\`\n`;
+        helpMsg += `Contoh kategori: \`!task add bayar listrik. besok. Rumah\`\n`;
         helpMsg += `Deadline: \`besok\` = +24 jam, \`besok lusa\` = +48 jam; pagi 07:00, siang 12:00, sore 16:00, malem 19:00.`;
         msg.reply(helpMsg);
         return true;
@@ -242,12 +252,12 @@ function getTasksHelpMessage(namaUser = "Kamu") {
   return `📖 *PANDUAN UTAMA KYATA TASKS* 📖\n\n` +
     `• \`!task\` -> Quick view melihat 3 teratas yang paling mendesak\n` +
     `• \`!task list\` -> Melihat seluruh daftar tugas aktifmu\n` +
-    `• \`!task add [Judul] | [Deadline] | [Kategori] | [Status]\`\n` +
+    `• \`!task add [Judul]. [Deadline]. [Kategori]. [Status]\`\n` +
     `• \`!task progress [id]\` -> Set tugas menjadi sedang digarap\n` +
     `• \`!task done [id]\` -> Tandai tugas selesai\n` +
     `• \`!task delete [id]\` -> Hapus salah input\n\n` +
-    `💡 *Contoh:* \`!task add beli susu | besok 17:00\`\n` +
-    `Contoh kategori: \`!task add bayar listrik | besok | Rumah\`\n` +
+    `💡 *Contoh:* \`!task add beli susu. besok 17:00\`\n` +
+    `Contoh kategori: \`!task add bayar listrik. besok. Rumah\`\n` +
     `Deadline: \`besok\` = +24 jam, \`besok lusa\` = +48 jam; pagi 07:00, siang 12:00, sore 16:00, malem 19:00.`;
 }
 
