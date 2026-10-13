@@ -28,8 +28,10 @@ function parseTaskDeadline(value, now = new Date()) {
     const timeMatch = parsedTimePhrase.match(/^(\d{1,2}):(\d{2})$/);
 
     if (!parsedTimePhrase) {
-      deadline.setSeconds(0, 0);
-      if (!isToday) {
+      if (isToday) {
+        deadline.setHours(23, 59, 0, 0);
+      } else {
+        deadline.setSeconds(0, 0);
         deadline.setTime(deadline.getTime() + (dayPhrase === "besok" ? 24 : 48) * 60 * 60 * 1000);
       }
     } else {
