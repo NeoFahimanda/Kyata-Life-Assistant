@@ -12,7 +12,20 @@ async function sendReminderMessage(client, chat, typeText) {
     return;
   }
 
-  const targetChat = await client.getChatById(chat.chat_id);
+  let targetChat;
+  try {
+    targetChat = await client.getChatById(chat.chat_id);
+  } catch (error) {
+    console.error(
+      `[CRON FINANCE] Gagal mengambil grup ${chat.chat_id}; mengirim tanpa mention:`,
+      error,
+    );
+    await client.sendMessage(
+      chat.chat_id,
+      `📢 *WAKTU NYA TRACKING DUIT ${typeText}!* 📊\n\nHalo teman-teman, jangan lupa catat pemasukan dan pengeluaran kalian ${typeText.toLowerCase()} ini lewat Kyata ya! ✨`,
+    );
+    return;
+  }
 
   if (targetChat.isGroup) {
     let text = `📢 *WAKTU NYA TRACKING DUIT ${typeText}!* 📊\n\nHalo teman-teman, jangan lupa catat pemasukan dan pengeluaran kalian ${typeText.toLowerCase()} ini lewat Kyata ya! ✨\n\n`;
