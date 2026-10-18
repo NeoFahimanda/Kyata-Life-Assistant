@@ -222,7 +222,7 @@ async function handleTasks(msg) {
       case "edit": {
         const payload = parseTaskEditPayload(textRaw);
         if (!payload) {
-          msg.reply(`❌ Format edit salah, ${namaUser}. Contoh:\n\`!task edit nama 5. Judul baru\`\n\`!task edit kategori 5. Design\``);
+          msg.reply(`❌ Format edit salah, ${namaUser}. Contoh:\n\`!task edit nama 5. Judul baru\`\n\`!task edit kategori 5. Design\`\n\`!task edit deadline 5. besok 17:00\``);
           return true;
         }
 
@@ -245,6 +245,15 @@ async function handleTasks(msg) {
             return true;
           }
           updateValue = normalizedStatus;
+        }
+
+        if (field === "deadline") {
+          try {
+            updateValue = parseTaskDeadline(value);
+          } catch (error) {
+            msg.reply(`❌ Deadline tidak dikenali. Gunakan format seperti: \`hari ini 17:00\`, \`besok 17:00\`, atau \`2026-10-20 12:00\`.`);
+            return true;
+          }
         }
 
         const isUpdated = await tasksRepo.updateTaskField(taskId, field, updateValue, userId);
@@ -382,6 +391,7 @@ async function handleTasks(msg) {
         helpMsg += `• \`!task add [Judul]. [Deadline]. [Kategori]. [Status]\`\n`;
         helpMsg += `• \`!task edit nama [id]. [Judul task baru]\`\n`;
         helpMsg += `• \`!task edit kategori [id]. [Kategori baru]\`\n`;
+        helpMsg += `• \`!task edit deadline [id]. [Deadline baru]\`\n`;
         helpMsg += `• \`!task progress [id]\` -> Set tugas menjadi sedang digarap\n`;
         helpMsg += `• \`!task done [id]\` -> Tandai tugas selesai\n`;
         helpMsg += `• \`!task delete [id]\` -> Hapus salah input\n\n`;
@@ -408,6 +418,7 @@ function getTasksHelpMessage(namaUser = "Kamu") {
     `• \`!task add [Judul]. [Deadline]. [Kategori]. [Status]\`\n` +
     `• \`!task edit nama [id]. [Judul task baru]\`\n` +
     `• \`!task edit kategori [id]. [Kategori baru]\`\n` +
+    `• \`!task edit deadline [id]. [Deadline baru]\`\n` +
     `• \`!task progress [id]\` -> Set tugas menjadi sedang digarap\n` +
     `• \`!task done [id]\` -> Tandai tugas selesai\n` +
     `• \`!task delete [id]\` -> Hapus salah input\n\n` +
@@ -416,4 +427,4 @@ function getTasksHelpMessage(namaUser = "Kamu") {
     `Deadline: \`hari ini 17:00\` atau \`sore ini\`; \`besok\` = +24 jam, \`besok lusa\` = +48 jam. Pagi 07:00, siang 12:00, sore 16:00, malem 19:00.`;
 }
 
-module.exports = { handleTasks, getTasksHelpMessage, parseTaskDeadline };
+module.exports = { handleTasks, getTasksHelpMessage, parseTaskDeadline, parseTaskEditPayload };
