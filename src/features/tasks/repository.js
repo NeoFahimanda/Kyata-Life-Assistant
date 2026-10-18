@@ -5,20 +5,29 @@ function formatDateTime(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+function normalizeTaskStatus(status) {
+  const text = String(status || 'pending').trim().toLowerCase();
+  if (text === 'progress') return 'in_progress';
+  if (['pending', 'in_progress', 'appointed', 'done'].includes(text)) return text;
+  return 'pending';
+}
+
 const tasksRepository = {
   /**
    * Menambahkan tugas baru dan mendaftarkan antrean notifikasi berbasis user_id
    */
   addTask: async (userId, title, category, deadline = null, status = 'pending', creatorId = null, creatorName = null) => {
-    const finalStatus = status === 'appointed' || !deadline ? 'appointed' : status;
-    const finalDeadline = finalStatus === 'appointed' ? null : deadline;
+    const finalStatus = normalizeTaskStatus(status);
+    const finalDeadline = deadline && String(deadline).trim() ? String(deadline).trim() : null;
+    const safeTitle = String(title || '').trim();
+    const safeCategory = String(category || 'Personal').trim() || 'Personal';
 
     const queryTask = `
       INSERT INTO tasks (user_id, title, category, deadline, status, creator_id, creator_name)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
     const stmtTask = db.prepare(queryTask);
-    const infoTask = stmtTask.run(userId, title, category, finalDeadline, finalStatus, creatorId, creatorName);
+    const infoTask = stmtTask.run(userId, safeTitle, safeCategory, finalDeadline, finalStatus, creatorId, creatorName);
     const taskId = infoTask.lastInsertRowid;
 
     if (finalDeadline) {
@@ -65,14 +74,55 @@ const tasksRepository = {
       }
     }
 
-    return { id: taskId, title, category, deadline: finalDeadline, status: finalStatus, creatorId, creatorName };
+    return { id: taskId, title: safeTitle, category: safeCategory, deadline: finalDeadline, status: finalStatus, creatorId, creatorName };
+  },
+
+  getTaskById: async (id, userId = null) => {
+    const query = userId
+      ? `SELECT id, title, category, deadline, status, creator_name FROM tasks WHERE id = ? AND user_id = ?`
+      : `SELECT id, title, category, deadline, status, creator_name FROM tasks WHERE id = ?`;
+    const params = userId ? [id, userId] : [id];
+    return db.prepare(query).get(...params);
+  },
+
+  getTasksByFilter: async (userId, filters = {}) => {
+    const conditions = ['user_id = ?'];
+    const params = [userId];
+
+    if (filters.category) {
+      conditions.push('LOWER(category) = LOWER(?)');
+      params.push(String(filters.category).trim());
+    }
+
+    if (filters.status) {
+      conditions.push('LOWER(status) = LOWER(?)');
+      params.push(normalizeTaskStatus(filters.status));
+    }
+
+    const query = `
+      SELECT id, title, category, deadline, status, creator_name
+      FROM tasks
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY 
+        CASE 
+          WHEN status = 'in_progress' THEN 0
+          WHEN status = 'pending' THEN 1
+          WHEN status = 'appointed' THEN 2
+          WHEN status = 'done' THEN 3
+          ELSE 4
+        END ASC,
+        CASE WHEN deadline IS NULL THEN 1 ELSE 0 END,
+        deadline ASC
+    `;
+
+    return db.prepare(query).all(...params);
   },
 
   /**
    * Mengambil tugas aktif spesifik milik user/chat tertentu
    */
   getActiveTasks: async (userId, limit = null) => {
-    let query = `
+    const query = `
       SELECT id, title, category, deadline, status, creator_name
       FROM tasks 
       WHERE user_id = ? AND status IN ('pending', 'in_progress', 'appointed')
@@ -88,8 +138,7 @@ const tasksRepository = {
     `;
 
     if (limit) {
-      query += ` LIMIT ?`;
-      return db.prepare(query).all(userId, limit);
+      return db.prepare(`${query} LIMIT ?`).all(userId, limit);
     }
     return db.prepare(query).all(userId);
   },
@@ -128,13 +177,42 @@ const tasksRepository = {
   },
 
   updateTaskStatus: async (id, status, userId) => {
+    const nextStatus = normalizeTaskStatus(status);
     const query = `UPDATE tasks SET status = ? WHERE id = ? AND user_id = ?`;
-    const info = db.prepare(query).run(status, id, userId);
+    const info = db.prepare(query).run(nextStatus, id, userId);
 
-    if (info.changes > 0 && status === 'done') {
+    if (info.changes > 0 && nextStatus === 'done') {
       const cancelQuery = `UPDATE task_reminders SET status = 'cancelled' WHERE task_id = ? AND status = 'pending'`;
       db.prepare(cancelQuery).run(id);
     }
+    return info.changes > 0;
+  },
+
+  updateTaskField: async (id, field, value, userId = null) => {
+    const allowedFields = ['title', 'category', 'deadline', 'status'];
+    const normalizedField = String(field || '').trim().toLowerCase();
+    if (!allowedFields.includes(normalizedField)) return false;
+
+    let normalizedValue = value;
+    if (normalizedField === 'status') {
+      normalizedValue = normalizeTaskStatus(value);
+    } else if (normalizedField === 'deadline') {
+      normalizedValue = value === null || value === undefined || String(value).trim() === '' ? null : String(value).trim();
+    } else {
+      normalizedValue = String(value || '').trim();
+      if (!normalizedValue) return false;
+    }
+
+    const query = userId
+      ? `UPDATE tasks SET ${normalizedField} = ? WHERE id = ? AND user_id = ?`
+      : `UPDATE tasks SET ${normalizedField} = ? WHERE id = ?`;
+    const params = userId ? [normalizedValue, id, userId] : [normalizedValue, id];
+    const info = db.prepare(query).run(...params);
+
+    if (info.changes > 0 && normalizedField === 'status' && normalizedValue === 'done') {
+      db.prepare(`UPDATE task_reminders SET status = 'cancelled' WHERE task_id = ? AND status = 'pending'`).run(id);
+    }
+
     return info.changes > 0;
   },
 
