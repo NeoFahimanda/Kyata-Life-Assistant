@@ -122,12 +122,26 @@ function getLastTransaction(noHp) {
     .get(noHp);
 }
 
-function migratePhoneOwner(phone) {
+function migratePhoneOwner(phone, aliases = []) {
   const legacyPhones = phone.startsWith("62") ? [`0${phone.slice(2)}`] : [];
   const migrate = db.prepare("UPDATE expenses SET user_id = ? WHERE user_id = ?");
   for (const legacyPhone of legacyPhones) {
     migrate.run(phone, legacyPhone);
   }
+
+  const canonicalChatId = `${phone}@c.us`;
+  const migrateConfig = db.transaction(() => {
+    for (const alias of new Set(aliases)) {
+      if (!alias || alias === canonicalChatId || alias.endsWith("@g.us")) continue;
+      const canonicalExists = db.prepare("SELECT 1 FROM bot_config WHERE chat_id = ?").get(canonicalChatId);
+      if (canonicalExists) {
+        db.prepare("DELETE FROM bot_config WHERE chat_id = ?").run(alias);
+      } else {
+        db.prepare("UPDATE bot_config SET chat_id = ? WHERE chat_id = ?").run(canonicalChatId, alias);
+      }
+    }
+  });
+  migrateConfig();
 }
 
 function getAllSyncRows(noHp) {
@@ -173,6 +187,26 @@ function getActiveReminders(type) {
     .all(type);
 }
 
+function getReminderConfig(chatId) {
+  return db.prepare(`
+    SELECT remind_duid AS enabled, remind_type AS type,
+      remind_day AS day, remind_time AS time
+    FROM bot_config WHERE chat_id = ?
+  `).get(chatId) || { enabled: 0, type: "weekly", day: "0", time: "20:00" };
+}
+
+function saveReminderConfig(chatId, { enabled, type, day, time }) {
+  return db.prepare(`
+    INSERT INTO bot_config (chat_id, remind_duid, remind_type, remind_day, remind_time)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(chat_id) DO UPDATE SET
+      remind_duid = excluded.remind_duid,
+      remind_type = excluded.remind_type,
+      remind_day = excluded.remind_day,
+      remind_time = excluded.remind_time
+  `).run(chatId, enabled ? 1 : 0, type, String(day), time);
+}
+
 function saveConfigDay(chatId, day) {
   const stmt = db.prepare(`
         INSERT INTO bot_config (chat_id, remind_day) VALUES (?, ?)
@@ -204,6 +238,8 @@ module.exports = {
   saveConfig,
   saveConfigType, // Daftarkan di sini!
   getActiveReminders,
+  getReminderConfig,
+  saveReminderConfig,
   saveConfigDay,
   saveConfigTime,
 };

@@ -48,6 +48,18 @@ db.prepare(`
   )
 `).run();
 
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS accounts (
+    phone TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL DEFAULT '',
+    task_user_id TEXT NOT NULL UNIQUE,
+    task_reminder_enabled INTEGER NOT NULL DEFAULT 1,
+    task_reminder_time TEXT NOT NULL DEFAULT '07:00',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )
+`).run();
+
 // 3. Membuat tabel konfigurasi bot alarm finance
 db.prepare(
   `

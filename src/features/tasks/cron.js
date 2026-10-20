@@ -1,5 +1,6 @@
 const cron = require("node-cron");
 const tasksRepo = require("./repository");
+const accountsRepo = require("../../services/accounts");
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -102,16 +103,21 @@ function initCron(client) {
         // ==========================================
         // JALUR 2: BROADCAST PROAKTIF RUTIN (3X SEHARI)
         // ==========================================
-        const jamRutin = ["07:00", "13:00", "19:00"];
+        const defaultReminderTimes = ["07:00", "13:00", "19:00"];
+        const labels = { "07:00": "pagi", "12:00": "siang", "13:00": "siang", "19:00": "malam" };
 
-        if (jamRutin.includes(jamMenitStr)) {
-            let label = jamMenitStr === "07:00" ? "pagi" : jamMenitStr === "13:00" ? "siang" : "malam";
+        try {
+            const groupedTasks = await tasksRepo.getAllUnfinishedTasksGrouped();
 
-            try {
-                console.log(`⏰ [CRON TASKS] Menjalankan laporan proaktif rutin ${label}...`);
-                const groupedTasks = await tasksRepo.getAllUnfinishedTasksGrouped();
-
-                for (const [userId, tasks] of Object.entries(groupedTasks)) {
+            for (const [userId, tasks] of Object.entries(groupedTasks)) {
+                    const preferences = userId.endsWith("@g.us")
+                        ? null
+                        : accountsRepo.getTaskReminderSettings(userId);
+                    const reminderTime = preferences
+                        ? preferences.enabled ? preferences.time : null
+                        : defaultReminderTimes.includes(jamMenitStr) ? jamMenitStr : null;
+                    if (reminderTime !== jamMenitStr) continue;
+                    const label = labels[jamMenitStr];
                     let overdueText = "";
                     let activeText = "";
                     let totalOverdue = 0;
@@ -149,10 +155,9 @@ function initCron(client) {
 
                     await sendTaskMessage(client, userId, finalBroadcast, tasks.map((task) => task.creator_id));
                     await delay(1000);
-                }
-            } catch (err) {
-                console.error(`🔴 [CRON TASKS] Gagal memproses broadcast proaktif ${label}:`, err);
             }
+        } catch (err) {
+            console.error(`🔴 [CRON TASKS] Gagal memproses broadcast proaktif ${jamMenitStr}:`, err);
         }
     }, { timezone: "Asia/Jakarta" });
 }

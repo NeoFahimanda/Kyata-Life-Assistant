@@ -74,6 +74,14 @@
       nav button {
         flex: 1;
       }
+      .preference-control {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .preference-control input[type="checkbox"] {
+        width: auto;
+      }
       button,
       input,
       select {
@@ -289,6 +297,7 @@
         <nav>
           <button data-tab="tasks" class="active">📋 Tasks</button>
           <button data-tab="finance">💰 Finance</button>
+          <button data-tab="profile">👤 Profile</button>
         </nav>
 
         <!-- TASKS -->
@@ -393,6 +402,72 @@
             <div id="finList"></div>
           </div>
         </section>
+
+        <section id="tab-profile" class="hidden">
+          <form id="profileForm">
+            <div class="card">
+              <h2>Account</h2>
+              <div class="grid two">
+                <div>
+                  <label for="profileName">Name</label>
+                  <input id="profileName" maxlength="40" required />
+                </div>
+                <div>
+                  <label>Verified WhatsApp number</label>
+                  <input id="profilePhone" disabled />
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <h2>Task reminder</h2>
+              <label class="preference-control">
+                <input id="taskReminderEnabled" type="checkbox" />
+                Send me a daily task summary
+              </label>
+              <div style="margin-top: 12px; max-width: 320px">
+                <label for="taskReminderTime">Reminder time</label>
+                <select id="taskReminderTime">
+                  <option value="07:00">Morning · 07:00</option>
+                  <option value="12:00">Noon · 12:00</option>
+                  <option value="19:00">Night · 19:00</option>
+                </select>
+              </div>
+            </div>
+            <div class="card">
+              <h2>Finance reminder</h2>
+              <label class="preference-control">
+                <input id="financeReminderEnabled" type="checkbox" />
+                Send me a finance reminder
+              </label>
+              <div class="grid two" style="margin-top: 12px">
+                <div>
+                  <label for="financeReminderType">Frequency</label>
+                  <select id="financeReminderType">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                  </select>
+                </div>
+                <div id="financeReminderDayField">
+                  <label for="financeReminderDay">Weekday</label>
+                  <select id="financeReminderDay">
+                    <option value="0">Sunday</option>
+                    <option value="1">Monday</option>
+                    <option value="2">Tuesday</option>
+                    <option value="3">Wednesday</option>
+                    <option value="4">Thursday</option>
+                    <option value="5">Friday</option>
+                    <option value="6">Saturday</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="financeReminderTime">Time</label>
+                  <input id="financeReminderTime" type="time" required />
+                </div>
+              </div>
+            </div>
+            <button class="primary" type="submit">Save profile</button>
+          </form>
+        </section>
       </div>
     </main>
     <div id="toast"></div>
@@ -464,6 +539,10 @@
             "hidden",
             b.dataset.tab !== "finance",
           );
+          $("tab-profile").classList.toggle(
+            "hidden",
+            b.dataset.tab !== "profile",
+          );
         }),
       );
 
@@ -518,6 +597,52 @@
         $("btnLogout").classList.add("hidden");
         $("login").classList.remove("hidden");
       };
+
+      $("financeReminderType").addEventListener("change", () => {
+        $("financeReminderDayField").classList.toggle(
+          "hidden",
+          $("financeReminderType").value !== "weekly",
+        );
+      });
+
+      async function loadProfile() {
+        const { data } = await api("GET", "/api/profile");
+        $("profileName").value = data.name || "";
+        $("profilePhone").value = data.phone;
+        $("taskReminderEnabled").checked = Boolean(data.taskReminderEnabled);
+        $("taskReminderTime").value = data.taskReminderTime;
+        $("financeReminderEnabled").checked = Boolean(
+          data.financeReminderEnabled,
+        );
+        $("financeReminderType").value = data.financeReminderType;
+        $("financeReminderDay").value = String(data.financeReminderDay);
+        $("financeReminderTime").value = data.financeReminderTime;
+        $("financeReminderType").dispatchEvent(new Event("change"));
+        $("accountLabel").textContent = data.name
+          ? `${data.name} · ${data.phone}`
+          : data.phone;
+      }
+
+      $("profileForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        try {
+          await api("PUT", "/api/profile", {
+            name: $("profileName").value,
+            taskReminderEnabled: $("taskReminderEnabled").checked,
+            taskReminderTime: $("taskReminderTime").value,
+            financeReminder: {
+              enabled: $("financeReminderEnabled").checked,
+              type: $("financeReminderType").value,
+              day: Number($("financeReminderDay").value),
+              time: $("financeReminderTime").value,
+            },
+          });
+          await loadProfile();
+          toast("Profile saved");
+        } catch (error) {
+          toast(error.message);
+        }
+      });
 
       api("GET", "/api/auth/me")
         .then(({ authenticated, phone }) => {
@@ -672,6 +797,7 @@
       function refreshAll() {
         loadTasks();
         loadFinance();
+        loadProfile().catch((error) => toast(error.message));
       }
     </script>
   </body>

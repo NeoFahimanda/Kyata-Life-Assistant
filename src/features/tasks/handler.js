@@ -1,5 +1,6 @@
 const tasksRepo = require("./repository");
 const { normalizePhoneNumber, taskUserIdFromPhone } = require("../../services/identity");
+const accountsRepo = require("../../services/accounts");
 
 function formatTaskDeadline(date) {
   const pad = (value) => String(value).padStart(2, "0");
@@ -181,7 +182,7 @@ async function handleTasks(msg) {
       await tasksRepo.linkPhoneAliases(phone, aliases);
       await tasksRepo.migratePhoneOwner(phone, aliases);
     }
-    let namaUser = kontak.pushname || kontak.name || kontak.number || "Pengguna";
+    let namaUser = accountsRepo.getDisplayName(phone) || kontak.pushname || kontak.name || kontak.number || "Pengguna";
     namaUser = namaUser.replace(/[/\\?*:[\]]/g, "").trim();
     const creatorId = msg.author || kontak.id?._serialized || null;
 

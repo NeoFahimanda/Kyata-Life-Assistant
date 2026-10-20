@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const path = require("path");
 const tasksRepo = require("../features/tasks/repository");
 const financeRepo = require("../features/finance/repository");
+const accountsRepo = require("../services/accounts");
 const { normalizePhoneNumber, taskUserIdFromPhone } = require("../services/identity");
 
 const PORT = process.env.WEB_PORT || 3000;
@@ -136,7 +137,8 @@ function startWebServer(client) {
     if (migratedTasks > 0) {
       console.info(`[WEB AUTH] Migrated ${migratedTasks} direct-chat task(s) for a verified account.`);
     }
-    financeRepo.migratePhoneOwner(phone);
+    financeRepo.migratePhoneOwner(phone, challenge.aliases);
+    accountsRepo.getOrCreate(phone);
     const token = crypto.randomBytes(32).toString("hex");
     sessions.set(token, { phone, expiresAt: Date.now() + SESSION_TTL_SECONDS * 1000 });
     setSessionCookie(req, res, token);
@@ -149,6 +151,57 @@ function startWebServer(client) {
     res.setHeader("Set-Cookie", "kyata_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0");
     res.json({ success: true });
   });
+
+  app.get("/api/profile", requireAuth, wrap(async (req, res) => {
+    const account = accountsRepo.getOrCreate(req.user.phone);
+    const finance = financeRepo.getReminderConfig(taskUserIdFromPhone(req.user.phone));
+    res.json({
+      success: true,
+      data: {
+        ...account,
+        financeReminderEnabled: Boolean(finance.enabled),
+        financeReminderType: finance.type,
+        financeReminderDay: Number(finance.day),
+        financeReminderTime: finance.time,
+      },
+    });
+  }));
+
+  app.put("/api/profile", requireAuth, wrap(async (req, res) => {
+    const name = String(req.body.name || "").trim();
+    if (!name || name.length > 40) return bad(res, "Name must be between 1 and 40 characters");
+
+    const taskReminderEnabled = req.body.taskReminderEnabled !== false;
+    const taskReminderTime = req.body.taskReminderTime;
+    if (!["07:00", "12:00", "19:00"].includes(taskReminderTime)) {
+      return bad(res, "Choose morning, noon, or night for the task reminder");
+    }
+
+    const financeReminder = req.body.financeReminder || {};
+    const financeReminderType = financeReminder.type;
+    const financeReminderDay = Number(financeReminder.day);
+    const financeReminderTime = financeReminder.time;
+    if (!['daily', 'weekly'].includes(financeReminderType)) {
+      return bad(res, "Finance reminder must be daily or weekly");
+    }
+    if (!Number.isInteger(financeReminderDay) || financeReminderDay < 0 || financeReminderDay > 6) {
+      return bad(res, "Choose a valid weekday for the weekly finance reminder");
+    }
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(financeReminderTime || "")) {
+      return bad(res, "Choose a valid finance reminder time");
+    }
+
+    const phone = req.user.phone;
+    accountsRepo.updateProfile(phone, { name, taskReminderEnabled, taskReminderTime });
+    financeRepo.saveReminderConfig(taskUserIdFromPhone(phone), {
+      enabled: financeReminder.enabled === true,
+      type: financeReminderType,
+      day: financeReminderDay,
+      time: financeReminderTime,
+    });
+
+    res.json({ success: true, data: accountsRepo.getProfile(phone) });
+  }));
 
   // ---------- TASKS ----------
   app.get(
