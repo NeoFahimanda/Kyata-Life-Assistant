@@ -3,6 +3,7 @@ process.env.TZ = "Asia/Jakarta";
 const { execSync } = require("child_process");
 const { Client, LocalAuth } = require("whatsapp-web.js");
 const qrcode = require("qrcode-terminal");
+const { startWebServer } = require("./src/web/server");
 
 // 0. PEMBERSIHAN ZOMBIE CHROMIUM
 // Bersihkan sisa proses Chromium lama jika ada agar tidak timbul error binding
@@ -126,6 +127,8 @@ client.on("message", async (msg) => {
         console.error("🔴 [Pusat Router Error]:", error);
     }
 });
+
+startWebServer();
 
 client.initialize().catch((error) => {
     console.error("🔴 [WHATSAPP CLIENT] Initial startup failed:", error);

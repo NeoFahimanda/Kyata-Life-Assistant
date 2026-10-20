@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kyata</title>
+    <style>
+      :root {
+        --bg: #0f1115;
+        --panel: #181b22;
+        --panel2: #1f232c;
+        --line: #2a2f3a;
+        --text: #e8eaf0;
+        --muted: #8b93a5;
+        --accent: #7c9cff;
+        --ok: #4ade80;
+        --warn: #fbbf24;
+        --bad: #f87171;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #f5f6fa;
+          --panel: #ffffff;
+          --panel2: #eef0f6;
+          --line: #dde1ea;
+          --text: #1b1f2a;
+          --muted: #6a7285;
+          --accent: #3b5bdb;
+          --ok: #16a34a;
+          --warn: #d97706;
+          --bad: #dc2626;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          15px/1.5 system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
+        position: sticky;
+        top: 0;
+        z-index: 5;
+      }
+      header h1 {
+        font-size: 18px;
+        margin: 0;
+        flex: 1;
+      }
+      main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 16px;
+      }
+      nav {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      nav button {
+        flex: 1;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+        color: inherit;
+      }
+      button {
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 12px;
+        cursor: pointer;
+      }
+      button:hover {
+        border-color: var(--accent);
+      }
+      button.active,
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      button.danger:hover {
+        border-color: var(--bad);
+        color: var(--bad);
+      }
+      input,
+      select {
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 10px;
+        width: 100%;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 14px;
+      }
+      .card h2 {
+        font-size: 15px;
+        margin: 0 0 10px;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .grid {
+        display: grid;
+        gap: 10px;
+      }
+      .grid.two {
+        grid-template-columns: 1fr 1fr;
+      }
+      .grid.form {
+        grid-template-columns: 2fr 1fr 1.2fr 1fr auto;
+        align-items: end;
+      }
+      @media (max-width: 640px) {
+        .grid.form,
+        .grid.two {
+          grid-template-columns: 1fr;
+        }
+      }
+      label {
+        font-size: 12px;
+        color: var(--muted);
+        display: block;
+        margin-bottom: 4px;
+      }
+      .stat {
+        font-size: 22px;
+        font-weight: 700;
+      }
+      .stat small {
+        display: block;
+        font-size: 12px;
+        font-weight: 400;
+        color: var(--muted);
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        padding: 10px 0;
+        border-top: 1px solid var(--line);
+      }
+      .row:first-child {
+        border-top: 0;
+      }
+      .row .main {
+        flex: 1;
+        min-width: 0;
+      }
+      .row .title {
+        font-weight: 600;
+        word-break: break-word;
+      }
+      .row .meta {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .row .actions {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .row .actions button {
+        padding: 4px 8px;
+        font-size: 12px;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 11px;
+        padding: 1px 8px;
+        border-radius: 99px;
+        border: 1px solid var(--line);
+        margin-left: 6px;
+      }
+      .in_progress {
+        color: var(--warn);
+      }
+      .pending {
+        color: var(--accent);
+      }
+      .appointed {
+        color: var(--muted);
+      }
+      .pos {
+        color: var(--ok);
+      }
+      .neg {
+        color: var(--bad);
+      }
+      .empty {
+        color: var(--muted);
+        text-align: center;
+        padding: 18px 0;
+      }
+      .hidden {
+        display: none;
+      }
+      #toast {
+        position: fixed;
+        bottom: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        padding: 8px 14px;
+        border-radius: 8px;
+        opacity: 0;
+        transition: opacity 0.2s;
+        pointer-events: none;
+      }
+      #toast.show {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>🤖 Kyata</h1>
+      <button id="btnSettings">⚙️ Settings</button>
+    </header>
+
+    <main>
+      <section id="settings" class="card hidden">
+        <h2>Settings</h2>
+        <div class="grid two">
+          <div>
+            <label for="phone"
+              >WhatsApp number (finance ID, e.g. 6281234567890)</label
+            >
+            <input id="phone" inputmode="numeric" placeholder="62812..." />
+          </div>
+          <div>
+            <label for="taskUserId"
+              >Tasks user ID (leave empty = number + @c.us)</label
+            >
+            <input id="taskUserId" placeholder="6281234567890@c.us" />
+          </div>
+        </div>
+        <p class="meta" style="color: var(--muted); font-size: 12px">
+          Tasks are stored per WhatsApp chat ID (<code>...@c.us</code> or a
+          group <code>...@g.us</code>); finance is stored per phone number.
+          Saved only in this browser.
+        </p>
+        <button class="primary" id="btnSave">Save</button>
+      </section>
+
+      <nav>
+        <button data-tab="tasks" class="active">📋 Tasks</button>
+        <button data-tab="finance">💰 Finance</button>
+      </nav>
+
+      <!-- TASKS -->
+      <section id="tab-tasks">
+        <div class="card">
+          <h2>Add task</h2>
+          <form id="taskForm" class="grid form">
+            <div><label>Title</label><input id="tTitle" required /></div>
+            <div>
+              <label>Category</label>
+              <select id="tCategory">
+                <option>Personal</option>
+                <option>EEPIS</option>
+                <option>Organisasi</option>
+                <option>IOU</option>
+                <option>Bisnis</option>
+              </select>
+            </div>
+            <div>
+              <label>Deadline (optional)</label
+              ><input id="tDeadline" type="datetime-local" />
+            </div>
+            <div>
+              <label>Status</label>
+              <select id="tStatus">
+                <option value="pending">pending</option>
+                <option value="in_progress">in_progress</option>
+                <option value="appointed">appointed</option>
+              </select>
+            </div>
+            <button class="primary" type="submit">Add</button>
+          </form>
+        </div>
+        <div class="card">
+          <h2>Active tasks</h2>
+          <div id="taskList"></div>
+        </div>
+      </section>
+
+      <!-- FINANCE -->
+      <section id="tab-finance" class="hidden">
+        <div class="card">
+          <h2 id="monthTitle">Summary</h2>
+          <div class="grid two">
+            <div class="stat pos" id="sIn">
+              -<small>Income this month</small>
+            </div>
+            <div class="stat neg" id="sOut">
+              -<small>Expenses this month</small>
+            </div>
+            <div class="stat" id="sDebt">-<small>Debt (hutang)</small></div>
+            <div class="stat" id="sRecv">
+              -<small>Receivable (piutang)</small>
+            </div>
+          </div>
+          <hr
+            style="border: 0; border-top: 1px solid var(--line); margin: 14px 0"
+          />
+          <div class="stat" id="sTotal">
+            -<small>Current physical balance</small>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Add transaction</h2>
+          <form id="finForm" class="grid form">
+            <div>
+              <label>Type</label>
+              <select id="fType">
+                <option value="Pengeluaran">Pengeluaran (expense)</option>
+                <option value="Pemasukan">Pemasukan (income)</option>
+                <option value="Hutang">Hutang</option>
+                <option value="Piutang">Piutang</option>
+                <option value="Bayar Hutang">Bayar Hutang</option>
+                <option value="Tagih Piutang">Tagih Piutang</option>
+              </select>
+            </div>
+            <div>
+              <label>Amount (Rp)</label
+              ><input id="fAmount" type="number" min="1" required />
+            </div>
+            <div style="grid-column: span 2">
+              <label>Note</label><input id="fNote" required />
+            </div>
+            <button class="primary" type="submit">Add</button>
+          </form>
+        </div>
+        <div class="card">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            "
+          >
+            <h2 style="margin: 0">This month's transactions</h2>
+            <button class="danger" id="btnUndo">↩ Undo last</button>
+          </div>
+          <div id="finList"></div>
+        </div>
+      </section>
+    </main>
+    <div id="toast"></div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const rp = (n) => "Rp " + Number(n || 0).toLocaleString("id-ID");
+      const esc = (s) =>
+        String(s ?? "").replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[c],
+        );
+
+      // ---- settings (localStorage, wrapped in try/catch) ----
+      const store = {
+        get(k) {
+          try {
+            return localStorage.getItem(k) || "";
+          } catch {
+            return "";
+          }
+        },
+        set(k, v) {
+          try {
+            localStorage.setItem(k, v);
+          } catch {}
+        },
+      };
+      const cfg = {
+        get phone() {
+          return store.get("kyata_phone").trim();
+        },
+        get taskUserId() {
+          return (
+            store.get("kyata_taskUserId").trim() ||
+            (this.phone ? this.phone + "@c.us" : "")
+          );
+        },
+      };
+
+      function toast(msg) {
+        const t = $("toast");
+        t.textContent = msg;
+        t.classList.add("show");
+        setTimeout(() => t.classList.remove("show"), 2200);
+      }
+
+      async function api(method, url, body) {
+        const res = await fetch(url, {
+          method,
+          headers: body ? { "Content-Type": "application/json" } : undefined,
+          body: body ? JSON.stringify(body) : undefined,
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || json.success === false)
+          throw new Error(json.message || res.statusText);
+        return json;
+      }
+
+      // ---- tabs ----
+      document.querySelectorAll("nav button").forEach((b) =>
+        b.addEventListener("click", () => {
+          document
+            .querySelectorAll("nav button")
+            .forEach((x) => x.classList.toggle("active", x === b));
+          $("tab-tasks").classList.toggle("hidden", b.dataset.tab !== "tasks");
+          $("tab-finance").classList.toggle(
+            "hidden",
+            b.dataset.tab !== "finance",
+          );
+        }),
+      );
+
+      // ---- settings UI ----
+      $("btnSettings").onclick = () => $("settings").classList.toggle("hidden");
+      $("btnSave").onclick = () => {
+        store.set("kyata_phone", $("phone").value);
+        store.set("kyata_taskUserId", $("taskUserId").value);
+        $("settings").classList.add("hidden");
+        toast("Saved");
+        refreshAll();
+      };
+      $("phone").value = cfg.phone;
+      $("taskUserId").value = store.get("kyata_taskUserId");
+      if (!cfg.phone) $("settings").classList.remove("hidden");
+
+      // ---- tasks ----
+      async function loadTasks() {
+        const box = $("taskList");
+        if (!cfg.taskUserId) {
+          box.innerHTML =
+            '<div class="empty">Set your number in Settings first.</div>';
+          return;
+        }
+        try {
+          const { data } = await api(
+            "GET",
+            "/api/tasks?userId=" + encodeURIComponent(cfg.taskUserId),
+          );
+          if (!data.length) {
+            box.innerHTML = '<div class="empty">🎉 No active tasks.</div>';
+            return;
+          }
+          box.innerHTML = data
+            .map(
+              (t) => `
+      <div class="row">
+        <div class="main">
+          <div class="title">${esc(t.title)}<span class="badge ${esc(t.status)}">${esc(t.status)}</span></div>
+          <div class="meta">#${t.id} · ${esc(t.category)} · ${t.deadline ? "⏳ " + esc(t.deadline) : "no deadline"}</div>
+        </div>
+        <div class="actions">
+          ${t.status !== "in_progress" ? `<button data-act="progress" data-id="${t.id}">⚡ Start</button>` : ""}
+          <button data-act="done" data-id="${t.id}">✅ Done</button>
+          <button class="danger" data-act="delete" data-id="${t.id}">🗑</button>
+        </div>
+      </div>`,
+            )
+            .join("");
+        } catch (e) {
+          box.innerHTML = `<div class="empty">Error: ${esc(e.message)}</div>`;
+        }
+      }
+
+      $("taskList").addEventListener("click", async (e) => {
+        const b = e.target.closest("button[data-act]");
+        if (!b) return;
+        const { act, id } = b.dataset;
+        try {
+          if (act === "delete") {
+            if (!confirm("Delete task #" + id + " permanently?")) return;
+            await api("DELETE", "/api/tasks/" + id);
+          } else {
+            await api("PATCH", "/api/tasks/" + id, {
+              status: act === "done" ? "done" : "in_progress",
+            });
+          }
+          loadTasks();
+        } catch (err) {
+          toast(err.message);
+        }
+      });
+
+      $("taskForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!cfg.taskUserId) return toast("Set your number in Settings");
+        try {
+          await api("POST", "/api/tasks", {
+            userId: cfg.taskUserId,
+            title: $("tTitle").value,
+            category: $("tCategory").value,
+            deadline: $("tDeadline").value || null,
+            status: $("tStatus").value,
+          });
+          $("taskForm").reset();
+          toast("Task added");
+          loadTasks();
+        } catch (err) {
+          toast(err.message);
+        }
+      });
+
+      // ---- finance ----
+      const ICON = {
+        Pemasukan: "➕",
+        Pengeluaran: "➖",
+        Hutang: "💸",
+        Piutang: "💼",
+        "Bayar Hutang": "✅",
+        "Tagih Piutang": "💰",
+      };
+
+      async function loadFinance() {
+        if (!cfg.phone) {
+          $("finList").innerHTML =
+            '<div class="empty">Set your number in Settings first.</div>';
+          return;
+        }
+        const q = "?phone=" + encodeURIComponent(cfg.phone);
+        try {
+          const [{ data: s }, { data: rows }] = await Promise.all([
+            api("GET", "/api/finance/summary" + q),
+            api("GET", "/api/finance/transactions" + q),
+          ]);
+          $("monthTitle").textContent = "Summary · " + s.namaBulan;
+          $("sIn").firstChild.textContent = rp(s.pemasukan);
+          $("sOut").firstChild.textContent = rp(s.pengeluaran);
+          $("sDebt").firstChild.textContent = rp(s.hutang);
+          $("sRecv").firstChild.textContent = rp(s.piutang);
+          $("sTotal").firstChild.textContent = rp(s.total);
+          $("finList").innerHTML = rows.length
+            ? rows
+                .slice()
+                .reverse()
+                .map(
+                  (r) => `
+      <div class="row">
+        <div class="main">
+          <div class="title">${ICON[r.jenis] || ""} ${esc(r.keterangan)}</div>
+          <div class="meta">${esc(r.tgl)} · ${esc(r.jenis)}</div>
+        </div>
+        <div class="title">${rp(r.nominal)}</div>
+      </div>`,
+                )
+                .join("")
+            : '<div class="empty">No transactions this month.</div>';
+        } catch (e) {
+          $("finList").innerHTML =
+            `<div class="empty">Error: ${esc(e.message)}</div>`;
+        }
+      }
+
+      $("finForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!cfg.phone) return toast("Set your number in Settings");
+        try {
+          await api("POST", "/api/finance/transactions", {
+            phone: cfg.phone,
+            jenis: $("fType").value,
+            nominal: $("fAmount").value,
+            keterangan: $("fNote").value,
+          });
+          $("finForm").reset();
+          toast("Saved");
+          loadFinance();
+        } catch (err) {
+          toast(err.message);
+        }
+      });
+
+      $("btnUndo").onclick = async () => {
+        if (!cfg.phone || !confirm("Delete your last transaction?")) return;
+        try {
+          await api(
+            "DELETE",
+            "/api/finance/transactions/last?phone=" +
+              encodeURIComponent(cfg.phone),
+          );
+          toast("Undone");
+          loadFinance();
+        } catch (err) {
+          toast(err.message);
+        }
+      };
+
+      function refreshAll() {
+        loadTasks();
+        loadFinance();
+      }
+      refreshAll();
+    </script>
+  </body>
+</html>
