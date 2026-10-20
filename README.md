@@ -7,5 +7,13 @@ Easily launch on your PC by running
 inside the directory on your CLI
 
 Requirements:
+
 - Node.js
 - SQLite3
+
+Web app:
+
+- Open the web app at `http://localhost:3000` while Kyata is running.
+- Sign in with a WhatsApp number that can receive messages from the bot, then enter the one-time code sent by WhatsApp.
+- Tasks are shared between WhatsApp direct chats and the web app using the verified phone number. Group tasks remain scoped to their WhatsApp group.
+- Use HTTPS when exposing the web app beyond localhost; the login session cookie is marked secure when served over HTTPS.

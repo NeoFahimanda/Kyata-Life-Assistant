@@ -85,6 +85,24 @@ const tasksRepository = {
     return db.prepare(query).get(...params);
   },
 
+  migrateUserId: async (oldUserId, newUserId) => {
+    if (!oldUserId || !newUserId || oldUserId === newUserId) return;
+    db.prepare('UPDATE tasks SET user_id = ? WHERE user_id = ?').run(newUserId, oldUserId);
+  },
+
+  migratePhoneOwner: async (phone) => {
+    const canonicalUserId = `${phone}@c.us`;
+    const legacyPhones = [phone];
+    if (phone.startsWith('62')) legacyPhones.push(`0${phone.slice(2)}`);
+
+    const migrate = db.prepare('UPDATE tasks SET user_id = ? WHERE user_id = ?');
+    for (const legacyPhone of legacyPhones) {
+      for (const legacyUserId of [legacyPhone, `${legacyPhone}@c.us`]) {
+        if (legacyUserId !== canonicalUserId) migrate.run(canonicalUserId, legacyUserId);
+      }
+    }
+  },
+
   getTasksByFilter: async (userId, filters = {}) => {
     const conditions = ['user_id = ?'];
     const params = [userId];

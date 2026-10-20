@@ -128,7 +128,7 @@ client.on("message", async (msg) => {
     }
 });
 
-startWebServer();
+startWebServer(client);
 
 client.initialize().catch((error) => {
     console.error("🔴 [WHATSAPP CLIENT] Initial startup failed:", error);

@@ -216,6 +216,18 @@
       .hidden {
         display: none;
       }
+      .auth-card {
+        max-width: 420px;
+        margin: 8vh auto;
+      }
+      .auth-card form {
+        display: grid;
+        gap: 12px;
+      }
+      #accountLabel {
+        color: var(--muted);
+        font-size: 13px;
+      }
       #toast {
         position: fixed;
         bottom: 16px;
@@ -237,137 +249,151 @@
   <body>
     <header>
       <h1>🤖 Kyata</h1>
-      <button id="btnSettings">⚙️ Settings</button>
+      <span id="accountLabel" class="hidden"></span>
+      <button id="btnLogout" class="hidden">Log out</button>
     </header>
 
     <main>
-      <section id="settings" class="card hidden">
-        <h2>Settings</h2>
-        <div class="grid two">
+      <section id="login" class="card auth-card">
+        <h2>Sign in with WhatsApp</h2>
+        <form id="requestCodeForm">
           <div>
-            <label for="phone"
-              >WhatsApp number (finance ID, e.g. 6281234567890)</label
-            >
-            <input id="phone" inputmode="numeric" placeholder="62812..." />
+            <label for="loginPhone">WhatsApp number</label>
+            <input
+              id="loginPhone"
+              inputmode="tel"
+              autocomplete="tel"
+              placeholder="6281234567890"
+              required
+            />
           </div>
+          <button class="primary" type="submit">Send login code</button>
+        </form>
+        <form id="verifyCodeForm" class="hidden">
           <div>
-            <label for="taskUserId"
-              >Tasks user ID (leave empty = number + @c.us)</label
+            <label for="loginCode">6-digit code</label>
+            <input
+              id="loginCode"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="6"
+              pattern="[0-9]{6}"
+              required
+            />
+          </div>
+          <button class="primary" type="submit">Verify and sign in</button>
+        </form>
+      </section>
+
+      <div id="appContent" class="hidden">
+        <nav>
+          <button data-tab="tasks" class="active">📋 Tasks</button>
+          <button data-tab="finance">💰 Finance</button>
+        </nav>
+
+        <!-- TASKS -->
+        <section id="tab-tasks">
+          <div class="card">
+            <h2>Add task</h2>
+            <form id="taskForm" class="grid form">
+              <div><label>Title</label><input id="tTitle" required /></div>
+              <div>
+                <label>Category</label>
+                <select id="tCategory">
+                  <option>Personal</option>
+                  <option>EEPIS</option>
+                  <option>Organisasi</option>
+                  <option>IOU</option>
+                  <option>Bisnis</option>
+                </select>
+              </div>
+              <div>
+                <label>Deadline (optional)</label
+                ><input id="tDeadline" type="datetime-local" />
+              </div>
+              <div>
+                <label>Status</label>
+                <select id="tStatus">
+                  <option value="pending">pending</option>
+                  <option value="in_progress">in_progress</option>
+                  <option value="appointed">appointed</option>
+                </select>
+              </div>
+              <button class="primary" type="submit">Add</button>
+            </form>
+          </div>
+          <div class="card">
+            <h2>Active tasks</h2>
+            <div id="taskList"></div>
+          </div>
+        </section>
+
+        <!-- FINANCE -->
+        <section id="tab-finance" class="hidden">
+          <div class="card">
+            <h2 id="monthTitle">Summary</h2>
+            <div class="grid two">
+              <div class="stat pos" id="sIn">
+                -<small>Income this month</small>
+              </div>
+              <div class="stat neg" id="sOut">
+                -<small>Expenses this month</small>
+              </div>
+              <div class="stat" id="sDebt">-<small>Debt (hutang)</small></div>
+              <div class="stat" id="sRecv">
+                -<small>Receivable (piutang)</small>
+              </div>
+            </div>
+            <hr
+              style="
+                border: 0;
+                border-top: 1px solid var(--line);
+                margin: 14px 0;
+              "
+            />
+            <div class="stat" id="sTotal">
+              -<small>Current physical balance</small>
+            </div>
+          </div>
+          <div class="card">
+            <h2>Add transaction</h2>
+            <form id="finForm" class="grid form">
+              <div>
+                <label>Type</label>
+                <select id="fType">
+                  <option value="Pengeluaran">Pengeluaran (expense)</option>
+                  <option value="Pemasukan">Pemasukan (income)</option>
+                  <option value="Hutang">Hutang</option>
+                  <option value="Piutang">Piutang</option>
+                  <option value="Bayar Hutang">Bayar Hutang</option>
+                  <option value="Tagih Piutang">Tagih Piutang</option>
+                </select>
+              </div>
+              <div>
+                <label>Amount (Rp)</label
+                ><input id="fAmount" type="number" min="1" required />
+              </div>
+              <div style="grid-column: span 2">
+                <label>Note</label><input id="fNote" required />
+              </div>
+              <button class="primary" type="submit">Add</button>
+            </form>
+          </div>
+          <div class="card">
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+              "
             >
-            <input id="taskUserId" placeholder="6281234567890@c.us" />
+              <h2 style="margin: 0">This month's transactions</h2>
+              <button class="danger" id="btnUndo">↩ Undo last</button>
+            </div>
+            <div id="finList"></div>
           </div>
-        </div>
-        <p class="meta" style="color: var(--muted); font-size: 12px">
-          Tasks are stored per WhatsApp chat ID (<code>...@c.us</code> or a
-          group <code>...@g.us</code>); finance is stored per phone number.
-          Saved only in this browser.
-        </p>
-        <button class="primary" id="btnSave">Save</button>
-      </section>
-
-      <nav>
-        <button data-tab="tasks" class="active">📋 Tasks</button>
-        <button data-tab="finance">💰 Finance</button>
-      </nav>
-
-      <!-- TASKS -->
-      <section id="tab-tasks">
-        <div class="card">
-          <h2>Add task</h2>
-          <form id="taskForm" class="grid form">
-            <div><label>Title</label><input id="tTitle" required /></div>
-            <div>
-              <label>Category</label>
-              <select id="tCategory">
-                <option>Personal</option>
-                <option>EEPIS</option>
-                <option>Organisasi</option>
-                <option>IOU</option>
-                <option>Bisnis</option>
-              </select>
-            </div>
-            <div>
-              <label>Deadline (optional)</label
-              ><input id="tDeadline" type="datetime-local" />
-            </div>
-            <div>
-              <label>Status</label>
-              <select id="tStatus">
-                <option value="pending">pending</option>
-                <option value="in_progress">in_progress</option>
-                <option value="appointed">appointed</option>
-              </select>
-            </div>
-            <button class="primary" type="submit">Add</button>
-          </form>
-        </div>
-        <div class="card">
-          <h2>Active tasks</h2>
-          <div id="taskList"></div>
-        </div>
-      </section>
-
-      <!-- FINANCE -->
-      <section id="tab-finance" class="hidden">
-        <div class="card">
-          <h2 id="monthTitle">Summary</h2>
-          <div class="grid two">
-            <div class="stat pos" id="sIn">
-              -<small>Income this month</small>
-            </div>
-            <div class="stat neg" id="sOut">
-              -<small>Expenses this month</small>
-            </div>
-            <div class="stat" id="sDebt">-<small>Debt (hutang)</small></div>
-            <div class="stat" id="sRecv">
-              -<small>Receivable (piutang)</small>
-            </div>
-          </div>
-          <hr
-            style="border: 0; border-top: 1px solid var(--line); margin: 14px 0"
-          />
-          <div class="stat" id="sTotal">
-            -<small>Current physical balance</small>
-          </div>
-        </div>
-        <div class="card">
-          <h2>Add transaction</h2>
-          <form id="finForm" class="grid form">
-            <div>
-              <label>Type</label>
-              <select id="fType">
-                <option value="Pengeluaran">Pengeluaran (expense)</option>
-                <option value="Pemasukan">Pemasukan (income)</option>
-                <option value="Hutang">Hutang</option>
-                <option value="Piutang">Piutang</option>
-                <option value="Bayar Hutang">Bayar Hutang</option>
-                <option value="Tagih Piutang">Tagih Piutang</option>
-              </select>
-            </div>
-            <div>
-              <label>Amount (Rp)</label
-              ><input id="fAmount" type="number" min="1" required />
-            </div>
-            <div style="grid-column: span 2">
-              <label>Note</label><input id="fNote" required />
-            </div>
-            <button class="primary" type="submit">Add</button>
-          </form>
-        </div>
-        <div class="card">
-          <div
-            style="
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-            "
-          >
-            <h2 style="margin: 0">This month's transactions</h2>
-            <button class="danger" id="btnUndo">↩ Undo last</button>
-          </div>
-          <div id="finList"></div>
-        </div>
-      </section>
+        </section>
+      </div>
     </main>
     <div id="toast"></div>
 
@@ -406,12 +432,6 @@
         get phone() {
           return store.get("kyata_phone").trim();
         },
-        get taskUserId() {
-          return (
-            store.get("kyata_taskUserId").trim() ||
-            (this.phone ? this.phone + "@c.us" : "")
-          );
-        },
       };
 
       function toast(msg) {
@@ -447,32 +467,74 @@
         }),
       );
 
-      // ---- settings UI ----
-      $("btnSettings").onclick = () => $("settings").classList.toggle("hidden");
-      $("btnSave").onclick = () => {
-        store.set("kyata_phone", $("phone").value);
-        store.set("kyata_taskUserId", $("taskUserId").value);
-        $("settings").classList.add("hidden");
-        toast("Saved");
+      function showAuthenticatedApp(phone) {
+        store.set("kyata_phone", phone);
+        $("login").classList.add("hidden");
+        $("appContent").classList.remove("hidden");
+        $("accountLabel").textContent = phone;
+        $("accountLabel").classList.remove("hidden");
+        $("btnLogout").classList.remove("hidden");
         refreshAll();
+      }
+
+      $("requestCodeForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const button = event.submitter;
+        button.disabled = true;
+        try {
+          await api("POST", "/api/auth/request-code", {
+            phone: $("loginPhone").value,
+          });
+          $("verifyCodeForm").classList.remove("hidden");
+          $("loginCode").focus();
+          toast("Code sent to WhatsApp");
+        } catch (error) {
+          toast(error.message);
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+      $("verifyCodeForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        try {
+          const { phone } = await api("POST", "/api/auth/verify-code", {
+            phone: $("loginPhone").value,
+            code: $("loginCode").value,
+          });
+          showAuthenticatedApp(phone);
+        } catch (error) {
+          toast(error.message);
+        }
+      });
+
+      $("btnLogout").onclick = async () => {
+        try {
+          await api("POST", "/api/auth/logout");
+        } catch {}
+        store.set("kyata_phone", "");
+        $("appContent").classList.add("hidden");
+        $("accountLabel").classList.add("hidden");
+        $("btnLogout").classList.add("hidden");
+        $("login").classList.remove("hidden");
       };
-      $("phone").value = cfg.phone;
-      $("taskUserId").value = store.get("kyata_taskUserId");
-      if (!cfg.phone) $("settings").classList.remove("hidden");
+
+      api("GET", "/api/auth/me")
+        .then(({ authenticated, phone }) => {
+          if (authenticated) showAuthenticatedApp(phone);
+        })
+        .catch(() => {});
 
       // ---- tasks ----
       async function loadTasks() {
         const box = $("taskList");
-        if (!cfg.taskUserId) {
+        if (!cfg.phone) {
           box.innerHTML =
-            '<div class="empty">Set your number in Settings first.</div>';
+            '<div class="empty">Sign in to view your tasks.</div>';
           return;
         }
         try {
-          const { data } = await api(
-            "GET",
-            "/api/tasks?userId=" + encodeURIComponent(cfg.taskUserId),
-          );
+          const { data } = await api("GET", "/api/tasks");
           if (!data.length) {
             box.innerHTML = '<div class="empty">🎉 No active tasks.</div>';
             return;
@@ -519,10 +581,9 @@
 
       $("taskForm").addEventListener("submit", async (e) => {
         e.preventDefault();
-        if (!cfg.taskUserId) return toast("Set your number in Settings");
+        if (!cfg.phone) return toast("Sign in first");
         try {
           await api("POST", "/api/tasks", {
-            userId: cfg.taskUserId,
             title: $("tTitle").value,
             category: $("tCategory").value,
             deadline: $("tDeadline").value || null,
@@ -547,16 +608,10 @@
       };
 
       async function loadFinance() {
-        if (!cfg.phone) {
-          $("finList").innerHTML =
-            '<div class="empty">Set your number in Settings first.</div>';
-          return;
-        }
-        const q = "?phone=" + encodeURIComponent(cfg.phone);
         try {
           const [{ data: s }, { data: rows }] = await Promise.all([
-            api("GET", "/api/finance/summary" + q),
-            api("GET", "/api/finance/transactions" + q),
+            api("GET", "/api/finance/summary"),
+            api("GET", "/api/finance/transactions"),
           ]);
           $("monthTitle").textContent = "Summary · " + s.namaBulan;
           $("sIn").firstChild.textContent = rp(s.pemasukan);
@@ -588,10 +643,9 @@
 
       $("finForm").addEventListener("submit", async (e) => {
         e.preventDefault();
-        if (!cfg.phone) return toast("Set your number in Settings");
+        if (!cfg.phone) return toast("Sign in first");
         try {
           await api("POST", "/api/finance/transactions", {
-            phone: cfg.phone,
             jenis: $("fType").value,
             nominal: $("fAmount").value,
             keterangan: $("fNote").value,
@@ -605,13 +659,9 @@
       });
 
       $("btnUndo").onclick = async () => {
-        if (!cfg.phone || !confirm("Delete your last transaction?")) return;
+        if (!confirm("Delete your last transaction?")) return;
         try {
-          await api(
-            "DELETE",
-            "/api/finance/transactions/last?phone=" +
-              encodeURIComponent(cfg.phone),
-          );
+          await api("DELETE", "/api/finance/transactions/last");
           toast("Undone");
           loadFinance();
         } catch (err) {
@@ -623,7 +673,6 @@
         loadTasks();
         loadFinance();
       }
-      refreshAll();
     </script>
   </body>
 </html>

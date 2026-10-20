@@ -1,4 +1,5 @@
 const repo = require("./repository");
+const { normalizePhoneNumber } = require("../../services/identity");
 
 function cleanUserName(rawName) {
   return (rawName || "").replace(/[/\\?*:[\]]/g, "").trim();
@@ -39,7 +40,7 @@ async function handleFinance(msg) {
 
   try {
     const kontak = await msg.getContact();
-    const noHp = kontak.number;
+    const noHp = normalizePhoneNumber(kontak.number) || kontak.number;
     const namaUser = cleanUserName(kontak.pushname || kontak.number);
 
     const subCommand = parts[1] ? parts[1].toLowerCase() : "help";

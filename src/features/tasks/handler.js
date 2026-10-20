@@ -1,4 +1,5 @@
 const tasksRepo = require("./repository");
+const { normalizePhoneNumber, taskUserIdFromPhone } = require("../../services/identity");
 
 function formatTaskDeadline(date) {
   const pad = (value) => String(value).padStart(2, "0");
@@ -167,10 +168,15 @@ async function handleTasks(msg) {
   if (command !== "@task" && command !== "!task") return false;
 
   const subCommand = parts[1] ? parts[1].toLowerCase() : "quick";
-  const userId = msg.from;
-
   try {
     const kontak = await msg.getContact();
+    const phone = normalizePhoneNumber(kontak.number);
+    const userId = msg.from.endsWith("@g.us") || !phone
+      ? msg.from
+      : taskUserIdFromPhone(phone);
+    if (userId !== msg.from && !msg.from.endsWith("@g.us")) {
+      await tasksRepo.migrateUserId(msg.from, userId);
+    }
     let namaUser = kontak.pushname || kontak.name || kontak.number || "Pengguna";
     namaUser = namaUser.replace(/[/\\?*:[\]]/g, "").trim();
     const creatorId = msg.author || kontak.id?._serialized || null;

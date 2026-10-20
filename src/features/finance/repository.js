@@ -122,6 +122,14 @@ function getLastTransaction(noHp) {
     .get(noHp);
 }
 
+function migratePhoneOwner(phone) {
+  const legacyPhones = phone.startsWith("62") ? [`0${phone.slice(2)}`] : [];
+  const migrate = db.prepare("UPDATE expenses SET user_id = ? WHERE user_id = ?");
+  for (const legacyPhone of legacyPhones) {
+    migrate.run(phone, legacyPhone);
+  }
+}
+
 function getAllSyncRows(noHp) {
   return db
     .prepare(
@@ -191,6 +199,7 @@ module.exports = {
   updateTransactionNominal,
   deleteTransaction,
   getLastTransaction,
+  migratePhoneOwner,
   getAllSyncRows,
   saveConfig,
   saveConfigType, // Daftarkan di sini!
