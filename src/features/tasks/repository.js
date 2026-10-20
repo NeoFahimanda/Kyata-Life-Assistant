@@ -90,17 +90,48 @@ const tasksRepository = {
     db.prepare('UPDATE tasks SET user_id = ? WHERE user_id = ?').run(newUserId, oldUserId);
   },
 
-  migratePhoneOwner: async (phone) => {
+  linkPhoneAliases: async (phone, aliases = []) => {
+    const uniqueAliases = [...new Set(aliases.filter((alias) => typeof alias === 'string' && alias))];
+    const linkAlias = db.prepare(`
+      INSERT INTO task_user_aliases (alias, phone) VALUES (?, ?)
+      ON CONFLICT(alias) DO UPDATE SET phone = excluded.phone
+    `);
+    for (const alias of uniqueAliases) linkAlias.run(alias, phone);
+  },
+
+  getPhoneForAliases: async (aliases = []) => {
+    const uniqueAliases = [...new Set(aliases.filter((alias) => typeof alias === 'string' && alias))];
+    if (uniqueAliases.length === 0) return null;
+    const placeholders = uniqueAliases.map(() => '?').join(', ');
+    const result = db.prepare(`
+      SELECT phone FROM task_user_aliases WHERE alias IN (${placeholders}) LIMIT 1
+    `).get(...uniqueAliases);
+    return result?.phone || null;
+  },
+
+  migratePhoneOwner: async (phone, aliases = []) => {
     const canonicalUserId = `${phone}@c.us`;
     const legacyPhones = [phone];
     if (phone.startsWith('62')) legacyPhones.push(`0${phone.slice(2)}`);
 
     const migrate = db.prepare('UPDATE tasks SET user_id = ? WHERE user_id = ?');
+    let migrated = 0;
     for (const legacyPhone of legacyPhones) {
       for (const legacyUserId of [legacyPhone, `${legacyPhone}@c.us`]) {
-        if (legacyUserId !== canonicalUserId) migrate.run(canonicalUserId, legacyUserId);
+        if (legacyUserId !== canonicalUserId) migrated += migrate.run(canonicalUserId, legacyUserId).changes;
       }
     }
+
+    const migrateAlias = db.prepare(`
+      UPDATE tasks SET user_id = ?
+      WHERE user_id = ? AND user_id NOT LIKE '%@g.us'
+    `);
+    for (const alias of new Set(aliases)) {
+      if (alias && alias !== canonicalUserId) {
+        migrated += migrateAlias.run(canonicalUserId, alias).changes;
+      }
+    }
+    return migrated;
   },
 
   getTasksByFilter: async (userId, filters = {}) => {

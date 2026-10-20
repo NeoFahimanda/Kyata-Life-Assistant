@@ -170,12 +170,16 @@ async function handleTasks(msg) {
   const subCommand = parts[1] ? parts[1].toLowerCase() : "quick";
   try {
     const kontak = await msg.getContact();
-    const phone = normalizePhoneNumber(kontak.number);
-    const userId = msg.from.endsWith("@g.us") || !phone
-      ? msg.from
-      : taskUserIdFromPhone(phone);
-    if (userId !== msg.from && !msg.from.endsWith("@g.us")) {
-      await tasksRepo.migrateUserId(msg.from, userId);
+    const isGroup = msg.from.endsWith("@g.us");
+    const aliases = [...new Set([msg.from, kontak.id?._serialized, msg.author].filter(Boolean))];
+    const linkedPhone = isGroup ? null : await tasksRepo.getPhoneForAliases(aliases);
+    const phone = linkedPhone || normalizePhoneNumber(kontak.number);
+    const userId = isGroup || !phone ? msg.from : taskUserIdFromPhone(phone);
+    const ownerType = isGroup ? "group" : userId.endsWith("@lid") ? "lid" : phone ? "phone" : "unknown";
+    console.info(`[TASK IDENTITY] ownerType=${ownerType} contactNumber=${kontak.number ? "available" : "missing"}`);
+    if (!isGroup && phone) {
+      await tasksRepo.linkPhoneAliases(phone, aliases);
+      await tasksRepo.migratePhoneOwner(phone, aliases);
     }
     let namaUser = kontak.pushname || kontak.name || kontak.number || "Pengguna";
     namaUser = namaUser.replace(/[/\\?*:[\]]/g, "").trim();

@@ -41,6 +41,13 @@ if (!taskColumns.includes("creator_name")) {
   db.prepare("ALTER TABLE tasks ADD COLUMN creator_name TEXT").run();
 }
 
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS task_user_aliases (
+    alias TEXT PRIMARY KEY,
+    phone TEXT NOT NULL
+  )
+`).run();
+
 // 3. Membuat tabel konfigurasi bot alarm finance
 db.prepare(
   `

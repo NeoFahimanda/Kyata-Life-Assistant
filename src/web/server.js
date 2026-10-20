@@ -94,8 +94,16 @@ function startWebServer(client) {
     rateKeys.forEach((key) => requestTimes.set(key, now));
 
     const code = String(crypto.randomInt(0, 1000000)).padStart(6, "0");
-    otpByPhone.set(phone, { code, expiresAt: now + OTP_TTL_MS, attempts: 0 });
+    const aliases = [taskUserIdFromPhone(phone)];
     try {
+      const numberId = await client.getNumberId(phone);
+      const numberIdSerialized = typeof numberId === "string" ? numberId : numberId?._serialized;
+      if (numberIdSerialized) aliases.push(numberIdSerialized);
+      try {
+        const contact = await client.getContactById(numberIdSerialized || taskUserIdFromPhone(phone));
+        if (contact.id?._serialized) aliases.push(contact.id._serialized);
+      } catch { }
+      otpByPhone.set(phone, { code, aliases: [...new Set(aliases)], expiresAt: now + OTP_TTL_MS, attempts: 0 });
       await client.sendMessage(
         taskUserIdFromPhone(phone),
         `Kode login Kyata kamu: ${code}. Kode berlaku selama 5 menit. Jangan bagikan kode ini kepada siapa pun.`,
@@ -123,7 +131,11 @@ function startWebServer(client) {
     }
 
     otpByPhone.delete(phone);
-    await tasksRepo.migratePhoneOwner(phone);
+    await tasksRepo.linkPhoneAliases(phone, challenge.aliases);
+    const migratedTasks = await tasksRepo.migratePhoneOwner(phone, challenge.aliases);
+    if (migratedTasks > 0) {
+      console.info(`[WEB AUTH] Migrated ${migratedTasks} direct-chat task(s) for a verified account.`);
+    }
     financeRepo.migratePhoneOwner(phone);
     const token = crypto.randomBytes(32).toString("hex");
     sessions.set(token, { phone, expiresAt: Date.now() + SESSION_TTL_SECONDS * 1000 });
