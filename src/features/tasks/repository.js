@@ -192,15 +192,20 @@ const tasksRepository = {
     return db.prepare(query).all(userId);
   },
 
-  getActiveTaskGroups: async () => {
+  getActiveTaskGroups: async (phone) => {
     return db.prepare(`
-      SELECT user_id AS id, COUNT(*) AS taskCount
-      FROM tasks
-      WHERE user_id LIKE '%@g.us'
-        AND status IN ('pending', 'in_progress', 'appointed')
-      GROUP BY user_id
-      ORDER BY user_id
-    `).all();
+      SELECT t.user_id AS id,
+        COUNT(*) AS taskCount,
+        SUM(CASE WHEN EXISTS (
+          SELECT 1 FROM task_user_aliases a
+          WHERE a.phone = ? AND a.alias = t.creator_id
+        ) THEN 1 ELSE 0 END) AS userTaskCount
+      FROM tasks t
+      WHERE t.user_id LIKE '%@g.us'
+        AND t.status IN ('pending', 'in_progress', 'appointed')
+      GROUP BY t.user_id
+      ORDER BY t.user_id
+    `).all(phone);
   },
 
   getPhoneAliases: async (phone) => {

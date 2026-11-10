@@ -75,23 +75,9 @@ function startWebServer(client) {
   app.use(express.static(path.join(__dirname, "../../public")));
 
   async function getUserTaskGroups(phone) {
-    const groups = await tasksRepo.getActiveTaskGroups();
+    const groups = await tasksRepo.getActiveTaskGroups(phone);
     if (groups.length === 0) return [];
 
-    if (typeof client.getChats !== "function") {
-      throw new Error("WhatsApp chat-list API is unavailable");
-    }
-    let chats;
-    try {
-      chats = await client.getChats();
-    } catch (error) {
-      throw new Error(`Could not load WhatsApp chats: ${error.message || error}`);
-    }
-    const chatsById = new Map(
-      chats
-        .filter((chat) => chat.isGroup)
-        .map((chat) => [chat.id?._serialized || chat.id, chat]),
-    );
     const aliases = new Set([
       `${phone}@c.us`,
       phone,
@@ -100,50 +86,63 @@ function startWebServer(client) {
 
     const visibleGroups = [];
     for (const group of groups) {
-      const chat = chatsById.get(group.id);
-      if (!chat) continue;
-
+      let chat = null;
       let isMember = false;
-      for (const participant of chat.participants || []) {
-        const participantId = participant.id?._serialized || participant.id || participant._serialized;
-        if (aliases.has(participantId)) {
-          isMember = true;
-          break;
-        }
-
-        const participantPhone = normalizePhoneNumber(
-          participant.id?.user ||
-            participant.number ||
-            String(participantId || "").split("@")[0],
-        );
-        if (participantPhone === phone) {
-          isMember = true;
-          break;
-        }
-
-        if (String(participantId || "").endsWith("@lid")) {
-          try {
-            const contact = await client.getContactById(participantId);
-            if (normalizePhoneNumber(contact.number) === phone) {
+      if (typeof client.getChatById === "function") {
+        try {
+          chat = await client.getChatById(group.id);
+          for (const participant of chat?.participants || []) {
+            const participantId =
+              participant.id?._serialized || participant.id || participant._serialized;
+            if (aliases.has(participantId)) {
               isMember = true;
               break;
             }
-          } catch (error) {
-            console.warn(
-              `[WEB TASK GROUPS] Could not resolve group participant ${participantId}:`,
-              error.message || error,
+
+            const participantPhone = normalizePhoneNumber(
+              participant.id?.user ||
+                participant.number ||
+                String(participantId || "").split("@")[0],
             );
+            if (participantPhone === phone) {
+              isMember = true;
+              break;
+            }
+
+            if (String(participantId || "").endsWith("@lid") && typeof client.getContactById === "function") {
+              try {
+                const contact = await client.getContactById(participantId);
+                if (normalizePhoneNumber(contact.number) === phone) {
+                  isMember = true;
+                  break;
+                }
+              } catch (error) {
+                console.warn(
+                  `[WEB TASK GROUPS] Could not resolve participant ${participantId} in ${group.id}:`,
+                  error.message || error,
+                );
+              }
+            }
           }
+        } catch (error) {
+          console.warn(
+            `[WEB TASK GROUPS] Could not load group ${group.id}; checking its task creator instead:`,
+            error.message || error,
+          );
         }
       }
 
-      if (!isMember) {
-        continue;
+      if (!chat && group.userTaskCount === 0) continue;
+      if (chat && !chat.isGroup) continue;
+      if (!isMember && group.userTaskCount === 0) continue;
+
+      if (!chat && typeof client.getChatById !== "function") {
+        console.warn("[WEB TASK GROUPS] WhatsApp getChatById API is unavailable");
       }
 
       visibleGroups.push({
         id: group.id,
-        name: chat.name || "WhatsApp group",
+        name: chat?.name || `WhatsApp group (${group.id.split("@")[0]})`,
         taskCount: group.taskCount,
       });
     }
