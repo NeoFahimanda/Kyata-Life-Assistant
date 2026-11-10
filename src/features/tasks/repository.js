@@ -192,6 +192,40 @@ const tasksRepository = {
     return db.prepare(query).all(userId);
   },
 
+  getActiveTaskGroups: async () => {
+    return db.prepare(`
+      SELECT user_id AS id, COUNT(*) AS taskCount
+      FROM tasks
+      WHERE user_id LIKE '%@g.us'
+        AND status IN ('pending', 'in_progress', 'appointed')
+      GROUP BY user_id
+      ORDER BY user_id
+    `).all();
+  },
+
+  getPhoneAliases: async (phone) => {
+    return db.prepare(`
+      SELECT alias FROM task_user_aliases WHERE phone = ?
+    `).all(phone).map(({ alias }) => alias);
+  },
+
+  getActiveGroupTasks: async (groupId) => {
+    return db.prepare(`
+      SELECT id, title, category, deadline, status, creator_name
+      FROM tasks
+      WHERE user_id = ? AND status IN ('pending', 'in_progress', 'appointed')
+      ORDER BY
+        CASE
+          WHEN status = 'in_progress' THEN 0
+          WHEN status = 'pending' THEN 1
+          WHEN status = 'appointed' THEN 2
+          ELSE 3
+        END,
+        CASE WHEN deadline IS NULL THEN 1 ELSE 0 END,
+        deadline ASC
+    `).all(groupId);
+  },
+
   getPendingQueue: async (currentTimeStr) => {
     const query = `
             SELECT r.id AS reminder_id, r.type, t.id AS task_id, t.title, t.category, t.deadline,

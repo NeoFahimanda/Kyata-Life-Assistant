@@ -42,7 +42,7 @@ async function handleFinance(msg) {
   try {
     const kontak = await msg.getContact();
     const linkedPhone = accountsRepo.getPhoneForAliases([msg.from, kontak.id?._serialized]);
-    const noHp = normalizePhoneNumber(kontak.number) || linkedPhone || kontak.number;
+    const noHp = linkedPhone || normalizePhoneNumber(kontak.number) || kontak.number;
     const namaUser = cleanUserName(accountsRepo.getDisplayName(noHp) || kontak.pushname || kontak.number);
 
     const subCommand = parts[1] ? parts[1].toLowerCase() : "help";

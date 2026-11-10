@@ -74,6 +74,35 @@ function startWebServer(client) {
   app.use(express.json());
   app.use(express.static(path.join(__dirname, "../../public")));
 
+  async function getUserTaskGroups(phone) {
+    const groups = await tasksRepo.getActiveTaskGroups();
+    const aliases = new Set([
+      `${phone}@c.us`,
+      phone,
+      ...(await tasksRepo.getPhoneAliases(phone)),
+    ]);
+
+    return (await Promise.all(groups.map(async (group) => {
+      const chat = await client.getChatById(group.id);
+      if (!chat.isGroup || !chat.participants?.some((participant) => {
+        const participantId = participant.id?._serialized || participant.id;
+        if (aliases.has(participantId)) return true;
+        const participantPhone = normalizePhoneNumber(
+          participant.id?.user || String(participantId || "").split("@")[0],
+        );
+        return participantPhone === phone;
+      })) {
+        return null;
+      }
+
+      return {
+        id: group.id,
+        name: chat.name || "WhatsApp group",
+        taskCount: group.taskCount,
+      };
+    }))).filter(Boolean);
+  }
+
   // ---------- HEALTH ----------
   app.get("/api/health", (req, res) => res.json({ success: true, status: "ok" }));
 
@@ -209,6 +238,32 @@ function startWebServer(client) {
     requireAuth,
     wrap(async (req, res) => {
       const data = await tasksRepo.getActiveTasks(taskUserIdFromPhone(req.user.phone));
+      res.json({ success: true, data });
+    }),
+  );
+
+  app.get(
+    "/api/tasks/groups",
+    requireAuth,
+    wrap(async (req, res) => {
+      const data = await getUserTaskGroups(req.user.phone);
+      res.json({ success: true, data });
+    }),
+  );
+
+  app.get(
+    "/api/tasks/groups/:groupId",
+    requireAuth,
+    wrap(async (req, res) => {
+      const groupId = req.params.groupId;
+      if (!groupId.endsWith("@g.us")) {
+        return res.status(404).json({ success: false, message: "Group not found" });
+      }
+      const groups = await getUserTaskGroups(req.user.phone);
+      if (!groups.some((group) => group.id === groupId)) {
+        return res.status(404).json({ success: false, message: "Group not found" });
+      }
+      const data = await tasksRepo.getActiveGroupTasks(groupId);
       res.json({ success: true, data });
     }),
   );

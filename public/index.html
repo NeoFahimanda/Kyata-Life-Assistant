@@ -6,37 +6,26 @@
     <title>Kyata</title>
     <style>
       :root {
-        --bg: #0f1115;
-        --panel: #181b22;
-        --panel2: #1f232c;
-        --line: #2a2f3a;
-        --text: #e8eaf0;
-        --muted: #8b93a5;
-        --accent: #7c9cff;
-        --ok: #4ade80;
-        --warn: #fbbf24;
-        --bad: #f87171;
-      }
-      @media (prefers-color-scheme: light) {
-        :root {
-          --bg: #f5f6fa;
-          --panel: #ffffff;
-          --panel2: #eef0f6;
-          --line: #dde1ea;
-          --text: #1b1f2a;
-          --muted: #6a7285;
-          --accent: #3b5bdb;
-          --ok: #16a34a;
-          --warn: #d97706;
-          --bad: #dc2626;
-        }
+        --bg: #f0f3fa;
+        --panel: #ffffff;
+        --panel2: #f5f8fd;
+        --line: #d5deef;
+        --text: #395886;
+        --muted: #638ecb;
+        --accent: #638ecb;
+        --accent-soft: #b1c9ef;
+        --ok: #25734b;
+        --warn: #9a6500;
+        --bad: #b33a48;
       }
       * {
         box-sizing: border-box;
       }
       body {
         margin: 0;
-        background: var(--bg);
+        background:
+          radial-gradient(ellipse at 85% 0%, #d5deef 0, transparent 34rem),
+          var(--bg);
         color: var(--text);
         font:
           15px/1.5 system-ui,
@@ -51,7 +40,9 @@
         gap: 12px;
         padding: 14px 16px;
         border-bottom: 1px solid var(--line);
-        background: var(--panel);
+        background: rgb(255 255 255 / 90%);
+        backdrop-filter: blur(14px);
+        box-shadow: 0 4px 18px rgb(57 88 134 / 7%);
         position: sticky;
         top: 0;
         z-index: 5;
@@ -70,6 +61,10 @@
         display: flex;
         gap: 8px;
         margin-bottom: 16px;
+        padding: 5px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgb(255 255 255 / 76%);
       }
       nav button {
         flex: 1;
@@ -91,12 +86,25 @@
       button {
         background: var(--panel2);
         border: 1px solid var(--line);
-        border-radius: 8px;
+        border-radius: 10px;
         padding: 8px 12px;
         cursor: pointer;
+        transition:
+          transform 0.18s ease,
+          box-shadow 0.18s ease,
+          background 0.18s ease,
+          border-color 0.18s ease;
       }
       button:hover {
         border-color: var(--accent);
+        transform: translateY(-1px);
+        box-shadow: 0 5px 14px rgb(57 88 134 / 12%);
+      }
+      button:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: 3px solid rgb(99 142 203 / 32%);
+        outline-offset: 2px;
       }
       button.active,
       button.primary {
@@ -112,22 +120,45 @@
       select {
         background: var(--panel2);
         border: 1px solid var(--line);
-        border-radius: 8px;
+        border-radius: 10px;
         padding: 8px 10px;
         width: 100%;
       }
       .card {
         background: var(--panel);
         border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 14px;
+        border-radius: 16px;
+        padding: 18px;
         margin-bottom: 14px;
+        box-shadow: 0 8px 24px rgb(57 88 134 / 6%);
+        animation: card-in 0.35s ease both;
       }
       .card h2 {
         font-size: 15px;
         margin: 0 0 10px;
-        color: var(--muted);
+        color: var(--text);
         font-weight: 600;
+      }
+      @keyframes card-in {
+        from {
+          opacity: 0;
+          transform: translateY(7px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      nav button {
+        background: transparent;
+        border-color: transparent;
+        color: var(--muted);
+      }
+      nav button.active {
+        background: #e6eefb;
+        border-color: #b1c9ef;
+        color: #395886;
+        box-shadow: 0 3px 10px rgb(57 88 134 / 10%);
       }
       .grid {
         display: grid;
@@ -168,6 +199,9 @@
         align-items: flex-start;
         padding: 10px 0;
         border-top: 1px solid var(--line);
+      }
+      .row:hover {
+        background: linear-gradient(90deg, rgb(240 243 250 / 75%), transparent);
       }
       .row:first-child {
         border-top: 0;
@@ -221,6 +255,38 @@
         text-align: center;
         padding: 18px 0;
       }
+      .group-button {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        margin-top: 8px;
+        text-align: left;
+        background: var(--panel2);
+      }
+      .group-icon {
+        display: grid;
+        place-items: center;
+        width: 38px;
+        height: 38px;
+        flex: 0 0 auto;
+        border-radius: 12px;
+        background: #e6eefb;
+        font-size: 18px;
+      }
+      .group-name {
+        flex: 1;
+        font-weight: 650;
+      }
+      .group-count {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .sync-status {
+        color: var(--muted);
+        font-size: 11px;
+        white-space: nowrap;
+      }
       .hidden {
         display: none;
       }
@@ -244,7 +310,7 @@
         background: var(--panel2);
         border: 1px solid var(--line);
         padding: 8px 14px;
-        border-radius: 8px;
+        border-radius: 12px;
         opacity: 0;
         transition: opacity 0.2s;
         pointer-events: none;
@@ -252,12 +318,53 @@
       #toast.show {
         opacity: 1;
       }
+      @media (max-width: 640px) {
+        header {
+          gap: 8px;
+          padding: 12px;
+        }
+        #accountLabel {
+          max-width: 34vw;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        #btnRefresh {
+          padding: 7px 9px;
+        }
+        .sync-status {
+          display: none;
+        }
+        main {
+          padding: 12px;
+        }
+        .card {
+          padding: 14px;
+        }
+        .row {
+          flex-wrap: wrap;
+        }
+        .row .actions {
+          width: 100%;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
+        }
+      }
     </style>
   </head>
   <body>
     <header>
       <h1>🤖 Kyata</h1>
+      <span id="syncStatus" class="sync-status hidden" aria-live="polite"></span>
       <span id="accountLabel" class="hidden"></span>
+      <button id="btnRefresh" class="hidden" type="button" aria-label="Refresh data" title="Refresh data">↻</button>
       <button id="btnLogout" class="hidden">Log out</button>
     </header>
 
@@ -334,6 +441,12 @@
           <div class="card">
             <h2>Active tasks</h2>
             <div id="taskList"></div>
+          </div>
+          <div class="card">
+            <h2>Group tasks</h2>
+            <div class="meta">Tugas aktif dari grup WhatsApp yang juga diikuti akunmu.</div>
+            <div id="taskGroupList"><div class="empty">Loading groups…</div></div>
+            <div id="groupTaskDetail" class="hidden"></div>
           </div>
         </section>
 
@@ -552,6 +665,8 @@
         $("appContent").classList.remove("hidden");
         $("accountLabel").textContent = phone;
         $("accountLabel").classList.remove("hidden");
+        $("syncStatus").classList.remove("hidden");
+        $("btnRefresh").classList.remove("hidden");
         $("btnLogout").classList.remove("hidden");
         refreshAll();
       }
@@ -594,6 +709,8 @@
         store.set("kyata_phone", "");
         $("appContent").classList.add("hidden");
         $("accountLabel").classList.add("hidden");
+        $("syncStatus").classList.add("hidden");
+        $("btnRefresh").classList.add("hidden");
         $("btnLogout").classList.add("hidden");
         $("login").classList.remove("hidden");
       };
@@ -685,6 +802,78 @@
         }
       }
 
+      async function loadTaskGroups() {
+        const list = $("taskGroupList");
+        try {
+          const { data } = await api("GET", "/api/tasks/groups");
+          list.innerHTML = data.length
+            ? data
+                .map(
+                  (group) => `
+        <button class="group-button" type="button" data-group-id="${esc(group.id)}" data-group-name="${esc(group.name)}">
+          <span class="group-icon" aria-hidden="true">👥</span>
+          <span class="group-name">${esc(group.name)}</span>
+          <span class="group-count">${group.taskCount} task${group.taskCount === 1 ? "" : "s"} · View →</span>
+        </button>`,
+                )
+                .join("")
+            : '<div class="empty">No active tasks in your WhatsApp groups.</div>';
+        } catch (error) {
+          list.innerHTML = `<div class="empty">Error: ${esc(error.message)}</div>`;
+        }
+      }
+
+      function renderGroupTasks(detail, groupName, data) {
+        detail.innerHTML = `
+          <button type="button" data-group-back>← All groups</button>
+          <h2 style="margin-top: 14px">${esc(groupName)}</h2>
+          <div class="meta">Read-only · Changes made in WhatsApp appear automatically.</div>
+          ${
+            data.length
+              ? data
+                  .map(
+                    (task) => `
+            <div class="row">
+              <div class="main">
+                <div class="title">${esc(task.title)}<span class="badge ${esc(task.status)}">${esc(task.status)}</span></div>
+                <div class="meta">#${task.id} · ${esc(task.category)} · ${task.deadline ? "⏳ " + esc(task.deadline) : "no deadline"}${task.creator_name ? " · " + esc(task.creator_name) : ""}</div>
+              </div>
+            </div>`,
+                  )
+                  .join("")
+              : '<div class="empty">No active tasks in this group.</div>'
+          }`;
+      }
+
+      $("taskGroupList").addEventListener("click", async (event) => {
+        const button = event.target.closest("button[data-group-id]");
+        if (!button) return;
+        const list = $("taskGroupList");
+        const detail = $("groupTaskDetail");
+        list.classList.add("hidden");
+        detail.classList.remove("hidden");
+        detail.dataset.groupId = button.dataset.groupId;
+        detail.dataset.groupName = button.dataset.groupName;
+        detail.innerHTML = '<div class="empty">Loading group tasks…</div>';
+        try {
+          const { data } = await api(
+            "GET",
+            "/api/tasks/groups/" + encodeURIComponent(button.dataset.groupId),
+          );
+          renderGroupTasks(detail, button.dataset.groupName, data);
+        } catch (error) {
+          detail.innerHTML = `
+            <button type="button" data-group-back>← All groups</button>
+            <div class="empty">Error: ${esc(error.message)}</div>`;
+        }
+      });
+
+      $("groupTaskDetail").addEventListener("click", (event) => {
+        if (!event.target.closest("[data-group-back]")) return;
+        $("groupTaskDetail").classList.add("hidden");
+        $("taskGroupList").classList.remove("hidden");
+      });
+
       $("taskList").addEventListener("click", async (e) => {
         const b = e.target.closest("button[data-act]");
         if (!b) return;
@@ -698,7 +887,7 @@
               status: act === "done" ? "done" : "in_progress",
             });
           }
-          loadTasks();
+          await Promise.all([loadTasks(), loadTaskGroups()]);
         } catch (err) {
           toast(err.message);
         }
@@ -716,7 +905,7 @@
           });
           $("taskForm").reset();
           toast("Task added");
-          loadTasks();
+          await loadTasks();
         } catch (err) {
           toast(err.message);
         }
@@ -760,7 +949,14 @@
                 )
                 .join("")
             : '<div class="empty">No transactions this month.</div>';
+          $("syncStatus").textContent =
+            "Synced " +
+            new Intl.DateTimeFormat("id-ID", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }).format(new Date());
         } catch (e) {
+          $("syncStatus").textContent = "Sync failed";
           $("finList").innerHTML =
             `<div class="empty">Error: ${esc(e.message)}</div>`;
         }
@@ -777,7 +973,7 @@
           });
           $("finForm").reset();
           toast("Saved");
-          loadFinance();
+          await loadFinance();
         } catch (err) {
           toast(err.message);
         }
@@ -788,17 +984,58 @@
         try {
           await api("DELETE", "/api/finance/transactions/last");
           toast("Undone");
-          loadFinance();
+          await loadFinance();
         } catch (err) {
           toast(err.message);
         }
       };
 
-      function refreshAll() {
-        loadTasks();
-        loadFinance();
-        loadProfile().catch((error) => toast(error.message));
+      let refreshInProgress = false;
+      async function refreshSharedData() {
+        if (refreshInProgress) return;
+        refreshInProgress = true;
+        try {
+          await Promise.all([loadTasks(), loadTaskGroups(), loadFinance()]);
+          const detail = $("groupTaskDetail");
+          if (!detail.classList.contains("hidden") && detail.dataset.groupId) {
+            try {
+              const { data } = await api(
+                "GET",
+                "/api/tasks/groups/" + encodeURIComponent(detail.dataset.groupId),
+              );
+              renderGroupTasks(detail, detail.dataset.groupName, data);
+            } catch (error) {
+              detail.innerHTML = `
+                <button type="button" data-group-back>← All groups</button>
+                <div class="empty">Error: ${esc(error.message)}</div>`;
+            }
+          }
+        } finally {
+          refreshInProgress = false;
+        }
       }
+
+      async function refreshAll() {
+        await refreshSharedData();
+        await loadProfile().catch((error) => toast(error.message));
+      }
+
+      $("btnRefresh").addEventListener("click", () => {
+        refreshAll();
+        toast("Refreshing data…");
+      });
+
+      setInterval(() => {
+        if (cfg.phone && !document.hidden) {
+          refreshSharedData();
+        }
+      }, 15000);
+
+      document.addEventListener("visibilitychange", () => {
+        if (cfg.phone && !document.hidden) {
+          refreshSharedData();
+        }
+      });
     </script>
   </body>
 </html>
