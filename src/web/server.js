@@ -76,31 +76,79 @@ function startWebServer(client) {
 
   async function getUserTaskGroups(phone) {
     const groups = await tasksRepo.getActiveTaskGroups();
+    if (groups.length === 0) return [];
+
+    if (typeof client.getChats !== "function") {
+      throw new Error("WhatsApp chat-list API is unavailable");
+    }
+    let chats;
+    try {
+      chats = await client.getChats();
+    } catch (error) {
+      throw new Error(`Could not load WhatsApp chats: ${error.message || error}`);
+    }
+    const chatsById = new Map(
+      chats
+        .filter((chat) => chat.isGroup)
+        .map((chat) => [chat.id?._serialized || chat.id, chat]),
+    );
     const aliases = new Set([
       `${phone}@c.us`,
       phone,
       ...(await tasksRepo.getPhoneAliases(phone)),
     ]);
 
-    return (await Promise.all(groups.map(async (group) => {
-      const chat = await client.getChatById(group.id);
-      if (!chat.isGroup || !chat.participants?.some((participant) => {
-        const participantId = participant.id?._serialized || participant.id;
-        if (aliases.has(participantId)) return true;
+    const visibleGroups = [];
+    for (const group of groups) {
+      const chat = chatsById.get(group.id);
+      if (!chat) continue;
+
+      let isMember = false;
+      for (const participant of chat.participants || []) {
+        const participantId = participant.id?._serialized || participant.id || participant._serialized;
+        if (aliases.has(participantId)) {
+          isMember = true;
+          break;
+        }
+
         const participantPhone = normalizePhoneNumber(
-          participant.id?.user || String(participantId || "").split("@")[0],
+          participant.id?.user ||
+            participant.number ||
+            String(participantId || "").split("@")[0],
         );
-        return participantPhone === phone;
-      })) {
-        return null;
+        if (participantPhone === phone) {
+          isMember = true;
+          break;
+        }
+
+        if (String(participantId || "").endsWith("@lid")) {
+          try {
+            const contact = await client.getContactById(participantId);
+            if (normalizePhoneNumber(contact.number) === phone) {
+              isMember = true;
+              break;
+            }
+          } catch (error) {
+            console.warn(
+              `[WEB TASK GROUPS] Could not resolve group participant ${participantId}:`,
+              error.message || error,
+            );
+          }
+        }
       }
 
-      return {
+      if (!isMember) {
+        continue;
+      }
+
+      visibleGroups.push({
         id: group.id,
         name: chat.name || "WhatsApp group",
         taskCount: group.taskCount,
-      };
-    }))).filter(Boolean);
+      });
+    }
+
+    return visibleGroups;
   }
 
   // ---------- HEALTH ----------
@@ -201,9 +249,15 @@ function startWebServer(client) {
     if (!name || name.length > 40) return bad(res, "Name must be between 1 and 40 characters");
 
     const taskReminderEnabled = req.body.taskReminderEnabled !== false;
-    const taskReminderTime = req.body.taskReminderTime;
-    if (!["07:00", "12:00", "19:00"].includes(taskReminderTime)) {
-      return bad(res, "Choose morning, noon, or night for the task reminder");
+    const taskReminderTimes = req.body.taskReminderTimes ?? [req.body.taskReminderTime];
+    if (
+      !Array.isArray(taskReminderTimes) ||
+      taskReminderTimes.length < 1 ||
+      taskReminderTimes.length > 5 ||
+      taskReminderTimes.some((time) => !/^([01]\d|2[0-3]):[0-5]\d$/.test(time || "")) ||
+      new Set(taskReminderTimes).size !== taskReminderTimes.length
+    ) {
+      return bad(res, "Choose between 1 and 5 unique valid task reminder times");
     }
 
     const financeReminder = req.body.financeReminder || {};
@@ -221,7 +275,7 @@ function startWebServer(client) {
     }
 
     const phone = req.user.phone;
-    accountsRepo.updateProfile(phone, { name, taskReminderEnabled, taskReminderTime });
+    accountsRepo.updateProfile(phone, { name, taskReminderEnabled, taskReminderTimes });
     financeRepo.saveReminderConfig(taskUserIdFromPhone(phone), {
       enabled: financeReminder.enabled === true,
       type: financeReminderType,

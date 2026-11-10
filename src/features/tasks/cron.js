@@ -104,7 +104,6 @@ function initCron(client) {
         // JALUR 2: BROADCAST PROAKTIF RUTIN (3X SEHARI)
         // ==========================================
         const defaultReminderTimes = ["07:00", "13:00", "19:00"];
-        const labels = { "07:00": "pagi", "12:00": "siang", "13:00": "siang", "19:00": "malam" };
 
         try {
             const groupedTasks = await tasksRepo.getAllUnfinishedTasksGrouped();
@@ -113,11 +112,12 @@ function initCron(client) {
                     const preferences = userId.endsWith("@g.us")
                         ? null
                         : accountsRepo.getTaskReminderSettings(userId);
-                    const reminderTime = preferences
-                        ? preferences.enabled ? preferences.time : null
-                        : defaultReminderTimes.includes(jamMenitStr) ? jamMenitStr : null;
-                    if (reminderTime !== jamMenitStr) continue;
-                    const label = labels[jamMenitStr];
+                    const reminderTimes = preferences
+                        ? preferences.enabled ? preferences.times : []
+                        : defaultReminderTimes;
+                    if (!reminderTimes.includes(jamMenitStr)) continue;
+                    const hour = Number(jamMenitStr.slice(0, 2));
+                    const label = hour < 11 ? "pagi" : hour < 16 ? "siang" : "malam";
                     let overdueText = "";
                     let activeText = "";
                     let totalOverdue = 0;

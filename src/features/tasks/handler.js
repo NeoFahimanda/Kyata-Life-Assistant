@@ -178,9 +178,12 @@ async function handleTasks(msg) {
     const userId = isGroup || !phone ? msg.from : taskUserIdFromPhone(phone);
     const ownerType = isGroup ? "group" : userId.endsWith("@lid") ? "lid" : phone ? "phone" : "unknown";
     console.info(`[TASK IDENTITY] ownerType=${ownerType} contactNumber=${kontak.number ? "available" : "missing"}`);
-    if (!isGroup && phone) {
-      await tasksRepo.linkPhoneAliases(phone, aliases);
-      await tasksRepo.migratePhoneOwner(phone, aliases);
+    if (phone) {
+      const userAliases = isGroup ? aliases.filter((alias) => alias !== msg.from) : aliases;
+      await tasksRepo.linkPhoneAliases(phone, userAliases);
+      if (!isGroup) {
+        await tasksRepo.migratePhoneOwner(phone, aliases);
+      }
     }
     let namaUser = accountsRepo.getDisplayName(phone) || kontak.pushname || kontak.name || kontak.number || "Pengguna";
     namaUser = namaUser.replace(/[/\\?*:[\]]/g, "").trim();

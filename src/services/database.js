@@ -55,10 +55,26 @@ db.prepare(`
     task_user_id TEXT NOT NULL UNIQUE,
     task_reminder_enabled INTEGER NOT NULL DEFAULT 1,
     task_reminder_time TEXT NOT NULL DEFAULT '07:00',
+    task_reminder_times TEXT NOT NULL DEFAULT '["07:00","13:00","19:00"]',
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
   )
 `).run();
+
+const accountColumns = db.prepare("PRAGMA table_info(accounts)").all().map((column) => column.name);
+if (!accountColumns.includes("task_reminder_times")) {
+  db.prepare("ALTER TABLE accounts ADD COLUMN task_reminder_times TEXT NOT NULL DEFAULT '[]'").run();
+  const accounts = db.prepare("SELECT phone, task_reminder_time FROM accounts").all();
+  const updateReminderTimes = db.prepare(
+    "UPDATE accounts SET task_reminder_times = ? WHERE phone = ?",
+  );
+  const migrateReminderTimes = db.transaction(() => {
+    for (const account of accounts) {
+      updateReminderTimes.run(JSON.stringify([account.task_reminder_time || "07:00"]), account.phone);
+    }
+  });
+  migrateReminderTimes();
+}
 
 // 3. Membuat tabel konfigurasi bot alarm finance
 db.prepare(

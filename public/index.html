@@ -535,16 +535,20 @@
               <h2>Task reminder</h2>
               <label class="preference-control">
                 <input id="taskReminderEnabled" type="checkbox" />
-                Send me a daily task summary
+                Send me proactive task reminders
               </label>
-              <div style="margin-top: 12px; max-width: 320px">
-                <label for="taskReminderTime">Reminder time</label>
-                <select id="taskReminderTime">
-                  <option value="07:00">Morning · 07:00</option>
-                  <option value="12:00">Noon · 12:00</option>
-                  <option value="19:00">Night · 19:00</option>
+              <div style="margin-top: 12px">
+                <label for="taskReminderCount">Reminders per day</label>
+                <select id="taskReminderCount" style="max-width: 320px">
+                  <option value="1">1 time</option>
+                  <option value="2">2 times</option>
+                  <option value="3">3 times</option>
+                  <option value="4">4 times</option>
+                  <option value="5">5 times</option>
                 </select>
               </div>
+              <div id="taskReminderTimes" class="grid two" style="margin-top: 12px"></div>
+              <div class="meta">Times use WIB (Asia/Jakarta). Personal reminders follow this schedule; group reminders keep the default three daily times.</div>
             </div>
             <div class="card">
               <h2>Finance reminder</h2>
@@ -727,7 +731,11 @@
         $("profileName").value = data.name || "";
         $("profilePhone").value = data.phone;
         $("taskReminderEnabled").checked = Boolean(data.taskReminderEnabled);
-        $("taskReminderTime").value = data.taskReminderTime;
+        const reminderTimes = data.taskReminderTimes?.length
+          ? data.taskReminderTimes
+          : [data.taskReminderTime || "07:00"];
+        $("taskReminderCount").value = String(reminderTimes.length);
+        renderTaskReminderTimes(reminderTimes.length, reminderTimes);
         $("financeReminderEnabled").checked = Boolean(
           data.financeReminderEnabled,
         );
@@ -740,13 +748,36 @@
           : data.phone;
       }
 
+      function renderTaskReminderTimes(count, values = []) {
+        $("taskReminderTimes").innerHTML = Array.from(
+          { length: count },
+          (_, index) => `
+            <div>
+              <label for="taskReminderTime${index}">Reminder ${index + 1} time</label>
+              <input id="taskReminderTime${index}" type="time" value="${esc(values[index] || "")}" required />
+            </div>`,
+        ).join("");
+      }
+
+      $("taskReminderCount").addEventListener("change", () => {
+        const currentTimes = Array.from(
+          $("taskReminderTimes").querySelectorAll('input[type="time"]'),
+          (input) => input.value,
+        );
+        renderTaskReminderTimes(Number($("taskReminderCount").value), currentTimes);
+      });
+
       $("profileForm").addEventListener("submit", async (event) => {
         event.preventDefault();
         try {
+          const taskReminderTimes = Array.from(
+            $("taskReminderTimes").querySelectorAll('input[type="time"]'),
+            (input) => input.value,
+          );
           await api("PUT", "/api/profile", {
             name: $("profileName").value,
             taskReminderEnabled: $("taskReminderEnabled").checked,
-            taskReminderTime: $("taskReminderTime").value,
+            taskReminderTimes,
             financeReminder: {
               enabled: $("financeReminderEnabled").checked,
               type: $("financeReminderType").value,
